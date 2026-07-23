@@ -43,7 +43,7 @@ The game is a static Vite build in `client/dist`. This repo includes `.github/wo
 2. Under **Build and deployment**, set **Source** to **GitHub Actions**
 3. Push to `main` (or run **Deploy to GitHub Pages** manually from the Actions tab)
 
-The workflow runs `npm ci && npm run build` from the repo root and publishes `client/dist`.
+The workflow runs `npm install && npm run build` from the repo root and publishes `client/dist`.
 
 Live URL: [https://ozswap.github.io/pigeon-pursuit-amsterdam/](https://ozswap.github.io/pigeon-pursuit-amsterdam/)
 
