@@ -110,9 +110,12 @@ export function getGameState(game: Phaser.Game) {
 
 export function saveBestScore(score: number) {
   const prev = parseInt(localStorage.getItem(STORAGE_KEYS.bestScore) ?? '0', 10);
-  const isNewBest = score > prev;
+  const prevCum = parseInt(localStorage.getItem(STORAGE_KEYS.cumulative) ?? '0', 10);
+  const safePrev = Number.isFinite(prev) ? prev : 0;
+  const safeCum = Number.isFinite(prevCum) ? prevCum : 0;
+  const isNewBest = score > safePrev;
   if (isNewBest) localStorage.setItem(STORAGE_KEYS.bestScore, String(score));
-  const cumulative = parseInt(localStorage.getItem(STORAGE_KEYS.cumulative) ?? '0', 10) + score;
+  const cumulative = safeCum + score;
   localStorage.setItem(STORAGE_KEYS.cumulative, String(cumulative));
   return { cumulative, isNewBest };
 }
