@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import {
-  GAME_HEIGHT,
   GAME_WIDTH,
   HITBOX,
   PARALLAX,
   PHYSICS,
+  PROGRESSION,
   SCORING,
   SKY_COLOR,
   SPAWN,
@@ -199,9 +199,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createBackground() {
-    // Solid sky — no image
+    // Solid sky — matches building strip top / level-complete art
     this.add
-      .rectangle(GAME_WIDTH / 2, 30, GAME_WIDTH, 60, SKY_COLOR)
+      .rectangle(GAME_WIDTH / 2, 32, GAME_WIDTH, 64, SKY_COLOR)
       .setScrollFactor(0)
       .setDepth(-10);
 
@@ -360,10 +360,6 @@ export class GameScene extends Phaser.Scene {
       return downAt !== undefined && Date.now() - downAt >= this.holdSpeedUpMs;
     });
 
-    const jumpJustPressed =
-      Phaser.Input.Keyboard.JustDown(this.spaceKey) ||
-      Phaser.Input.Keyboard.JustDown(this.cursors?.up) ||
-      this.jumpBuffered;
     const duck = this.cursors?.down?.isDown || pointerDuck;
     const speedUp = this.cursors?.right?.isDown || pointerHoldSpeedUp;
     const brake = this.cursors?.left?.isDown || pointerBrake;
@@ -381,11 +377,20 @@ export class GameScene extends Phaser.Scene {
       this.coyoteMsLeft = Math.max(0, this.coyoteMsLeft - deltaMs);
     }
 
-    if (jumpJustPressed && (onGround || this.coyoteMsLeft > 0)) {
-      this.performJump();
-    } else if (jumpJustPressed && !this.isJumping) {
+    const keyboardJump =
+      Phaser.Input.Keyboard.JustDown(this.spaceKey) ||
+      Phaser.Input.Keyboard.JustDown(this.cursors?.up);
+    if (keyboardJump) {
       this.jumpBuffered = true;
       this.jumpBufferUntil = this.time.now + PHYSICS.jumpBufferMs;
+    }
+
+    if (
+      this.jumpBuffered &&
+      this.time.now <= this.jumpBufferUntil &&
+      (onGround || this.coyoteMsLeft > 0)
+    ) {
+      this.performJump();
     }
 
     if (this.isJumping) {
@@ -498,9 +503,12 @@ export class GameScene extends Phaser.Scene {
 
     const now = this.time.now;
     if (now < this.invincibleUntil) {
-      this.player.setAlpha(Math.sin(now / 80) > 0 ? 0.35 : 1);
+      const flickerAlpha = Math.sin(now / 80) > 0 ? 0.35 : 1;
+      this.player.setAlpha(flickerAlpha);
+      this.cargo.setAlpha(flickerAlpha);
     } else {
       this.player.setAlpha(1);
+      this.cargo.setAlpha(1);
     }
   }
 
@@ -555,8 +563,9 @@ export class GameScene extends Phaser.Scene {
 
   private spawnPigeon() {
     let variant: PigeonVariant = 'standard';
-    if (this.level >= 6 && Math.random() < 0.18) variant = 'flock';
-    else if (this.level >= 4 && Math.random() < 0.25) variant = 'divebomber';
+    if (this.level >= PROGRESSION.flockUnlockLevel && Math.random() < 0.18) variant = 'flock';
+    else if (this.level >= PROGRESSION.divebomberUnlockLevel && Math.random() < 0.25)
+      variant = 'divebomber';
 
     const count = variant === 'flock' ? 3 : 1;
     for (let i = 0; i < count; i++) {

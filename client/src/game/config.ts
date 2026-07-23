@@ -11,23 +11,33 @@ export const PHYSICS = {
   brakeMultiplier: 0.75,
   iFrameDuration: 1500,
   telegraphDuration: 1000,
-  perfectDodgeWindow: 28,
+  perfectDodgeWindow: 18,
   startingPastries: 10,
   groundY: 150,
   playerX: 80,
+  jumpBufferMs: 100,
+  coyoteTimeMs: 80,
+};
+
+/** Level progression — distance gates and variant unlocks. */
+export const PROGRESSION = {
+  levelDistance: 3000,
+  levelCompleteDistance: 24000,
+  flockUnlockLevel: 5,
+  divebomberUnlockLevel: 4,
 };
 
 /** Pigeon spawn pacing — gentler early curve, ramps with distance. */
 export const SPAWN = {
-  initialDelay: 4.5,
-  baseInterval: 4.5,
-  minInterval: 1.1,
-  rampPerMeter: 0.00035,
+  initialDelay: 2.5,
+  baseInterval: 3.0,
+  minInterval: 1.3,
+  rampPerMeter: 0.00055,
 };
 
 export const HITBOX = {
   playerCore: { w: 24, h: 48 },
-  pigeonBeak: { w: 12, h: 12 },
+  pigeonBeak: { w: 14, h: 14 },
 };
 
 export const SCORING = {
@@ -39,13 +49,14 @@ export const SCORING = {
 
 /** Parallax layers — sky is a solid color in GameScene, not an image. */
 export const PARALLAX = [
-  { key: 'bg_buildings', speed: 0.16, y: 18, height: 45 },
-  { key: 'bg_canal', speed: 0.34, y: 62, height: 36 },
-  { key: 'bg_path', speed: 0.68, y: 98, height: 32 },
-  { key: 'spr_fence_tile', speed: 1.1, y: 142, height: 38, tileScale: 1 },
+  { key: 'bg_buildings', speed: 0.15, y: 16, height: 42 },
+  { key: 'bg_canal', speed: 0.32, y: 57, height: 34 },
+  { key: 'bg_path', speed: 0.65, y: 90, height: 30 },
+  { key: 'spr_fence_tile', speed: 1.0, y: 122, height: 38, tileScale: 1 },
 ] as const;
 
-export const SKY_COLOR = 0x6a9ab8;
+/** Hazy Amsterdam sky sampled from level-complete left panel art. */
+export const SKY_COLOR = 0x696e92;
 
 export const STORAGE_KEYS = {
   bestScore: 'canal_courier_best_score',

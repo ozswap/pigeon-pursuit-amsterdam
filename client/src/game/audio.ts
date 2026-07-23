@@ -99,7 +99,8 @@ export class AudioManager {
   }
 
   playLand() {
-    this.playTone(180, 0.04, 'triangle', 0.06);
+    this.playTone(180, 0.05, 'triangle', 0.12);
+    this.playTone(90, 0.06, 'triangle', 0.06, 0.02);
   }
 
   startBGM() {
