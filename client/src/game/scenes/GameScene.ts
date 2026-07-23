@@ -154,6 +154,11 @@ export class GameScene extends Phaser.Scene {
     this.updateCargoVisual();
   }
 
+  private getSourceSize(key: string): { w: number; h: number } {
+    const source = this.textures.get(key).getSourceImage() as HTMLImageElement;
+    return { w: source.width, h: source.height };
+  }
+
   private setCyclistFrame(idx: number) {
     const frames = [
       { x: 0.02, y: 0.02, w: 0.31, h: 0.46 },
@@ -164,11 +169,12 @@ export class GameScene extends Phaser.Scene {
       { x: 0.68, y: 0.52, w: 0.31, h: 0.46 },
     ];
     const f = frames[idx % frames.length];
+    const { w: srcW, h: srcH } = this.getSourceSize('cyclist_sheet');
     this.player.setCrop(
-      f.x * this.player.width,
-      f.y * this.player.height,
-      f.w * this.player.width,
-      f.h * this.player.height
+      f.x * srcW,
+      f.y * srcH,
+      f.w * srcW,
+      f.h * srcH
     );
   }
 
@@ -349,10 +355,11 @@ export class GameScene extends Phaser.Scene {
     const arrow = this.add.image(0, 0, 'telegraph_arrow')
       .setOrigin(0.5, 0)
       .setScale(0.22);
-    const cropW = Math.floor(arrow.width * 0.22);
-    const cropH = Math.floor(arrow.height * 0.55);
-    const cropX = Math.floor((arrow.width - cropW) / 2);
-    const cropY = Math.floor((arrow.height - cropH) / 2);
+    const { w: srcW, h: srcH } = this.getSourceSize('telegraph_arrow');
+    const cropW = Math.floor(srcW * 0.22);
+    const cropH = Math.floor(srcH * 0.55);
+    const cropX = Math.floor((srcW - cropW) / 2);
+    const cropY = Math.floor((srcH - cropH) / 2);
     arrow.setCrop(cropX, cropY, cropW, cropH);
     c.add(arrow);
     this.tweens.add({
@@ -370,8 +377,9 @@ export class GameScene extends Phaser.Scene {
       .setDepth(85)
       .setScale(0.12)
       .setOrigin(0.5);
-    const frameW = smoke.width / SMOKE_COLS;
-    const frameH = smoke.height / 2;
+    const { w: srcW, h: srcH } = this.getSourceSize('smoke_vfx');
+    const frameW = srcW / SMOKE_COLS;
+    const frameH = srcH / 2;
     let frame = 0;
 
     const showFrame = () => {
@@ -397,11 +405,12 @@ export class GameScene extends Phaser.Scene {
 
   private setPigeonFrame(pigeon: PigeonObj, idx: number) {
     const f = PIGEON_FRAMES[idx % PIGEON_FRAMES.length];
+    const { w: srcW, h: srcH } = this.getSourceSize('pigeon_sheet');
     pigeon.sprite.setCrop(
-      f.x * pigeon.sprite.width,
-      f.y * pigeon.sprite.height,
-      f.w * pigeon.sprite.width,
-      f.h * pigeon.sprite.height
+      f.x * srcW,
+      f.y * srcH,
+      f.w * srcW,
+      f.h * srcH
     );
   }
 
