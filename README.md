@@ -5,25 +5,23 @@ A retro pixel-art endless runner — dodge aggressive Amsterdam pigeons while de
 ## Stack
 
 - **Frontend**: React + Vite + Phaser 3 (320×180, CRT shader)
-- **Backend**: Node.js + Express (in-memory leaderboard)
-- **Hosting**: Render (free tier)
+- **Hosting**: Render static site (free tier)
+
+The game runs fully in the browser with local storage for best score, cumulative progress, and unlocks. No backend required.
 
 ## Local Development
 
 ```bash
 npm install
-npm run dev          # client :5173 + server :3001
-npm run dev:client   # frontend only
-npm run dev:server   # API only
+npm run dev          # client at http://localhost:5173
 ```
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Run client + server concurrently |
-| `npm run build` | Build both workspaces |
-| `npm run test` | Run server Jest tests |
+| `npm run dev` | Run the game client |
+| `npm run build` | Build the static site |
 | `npm run pack-atlas` | Slice sprite sheets into atlas frames |
 
 ## Controls
@@ -42,11 +40,7 @@ npm run dev:server   # API only
 3. Render Dashboard → **New Blueprint** → connect ozswap repo
 4. Apply `render.yaml`
 
-### Free Tier Notes
-
-- **Static site** (game): always on
-- **Web service** (API): spins down after 15 min idle (~1 min cold start)
-- **Leaderboard**: stored in memory — resets when the API restarts or redeploys
+The blueprint deploys a static site only — no API service.
 
 ## GitHub Account
 

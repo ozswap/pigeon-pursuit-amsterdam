@@ -4,13 +4,6 @@ import { GameCanvas, restartGame, saveBestScore } from './game/GameCanvas';
 import { toggleCRTPipeline } from './game/pipelines/CRTPipeline';
 import { audioManager } from './game/audio';
 import { STORAGE_KEYS, GOLDEN_BIKE_THRESHOLD } from './game/config';
-import {
-  createSession,
-  submitScore,
-  fetchLeaderboard,
-  sendTelemetry,
-  type LeaderboardEntry,
-} from './api/client';
 import './App.css';
 
 type Screen = 'menu' | 'playing' | 'paused' | 'gameover' | 'levelcomplete';
@@ -30,11 +23,8 @@ export default function App() {
     () => parseInt(localStorage.getItem(STORAGE_KEYS.bestScore) ?? '0', 10)
   );
   const [finalScore, setFinalScore] = useState(0);
-  const [rank, setRank] = useState<number | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [showEpilepsyWarning, setShowEpilepsyWarning] = useState(true);
   const gameRef = useRef<Phaser.Game | null>(null);
-  const loadStart = useRef(performance.now());
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,19 +35,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [screen]);
 
-  useEffect(() => {
-    createSession();
-    fetchLeaderboard().then(setLeaderboard);
-  }, []);
-
   const handleGameEvent = useCallback(
-    async (event: string, data?: Record<string, unknown>) => {
-      sendTelemetry(event, data);
-
+    (event: string, data?: Record<string, unknown>) => {
       if (event === 'game_over' || event === 'level_complete') {
         const score = (data?.score as number) ?? 0;
-        const pastries = (data?.pastries as number) ?? 0;
-        const level = (data?.level as number) ?? 1;
         const cumulative = saveBestScore(score);
         setBestScore(Math.max(bestScore, score));
         setFinalScore(score);
@@ -66,26 +47,19 @@ export default function App() {
           localStorage.setItem(STORAGE_KEYS.goldenBike, 'true');
         }
 
-        const r = await submitScore(username, score, pastries, level);
-        setRank(r);
-        fetchLeaderboard().then(setLeaderboard);
-
         setScreen(event === 'level_complete' ? 'levelcomplete' : 'gameover');
       }
     },
-    [username, bestScore]
+    [bestScore]
   );
 
   const startGame = () => {
     setShowEpilepsyWarning(false);
     setScreen('playing');
-    sendTelemetry('menu_play_clicked');
   };
 
   const handleReady = (game: Phaser.Game) => {
     gameRef.current = game;
-    const loadTime = performance.now() - loadStart.current;
-    sendTelemetry('game_load_complete', { ms: loadTime });
     game.scene.start('Game', { onGameEvent: handleGameEvent });
   };
 
@@ -94,7 +68,6 @@ export default function App() {
     setCrtEnabled(next);
     localStorage.setItem(STORAGE_KEYS.crtEnabled, String(next));
     if (gameRef.current) toggleCRTPipeline(gameRef.current);
-    sendTelemetry('crt_filter_toggled', { enabled: next });
   };
 
   const toggleSound = () => {
@@ -120,7 +93,6 @@ export default function App() {
       gameRef.current.scene.start('Game', { onGameEvent: handleGameEvent });
     }
     setScreen('playing');
-    setRank(null);
   };
 
   const hasGoldenBike = localStorage.getItem(STORAGE_KEYS.goldenBike) === 'true';
@@ -160,7 +132,7 @@ export default function App() {
                   maxLength={16}
                   value={username}
                   onChange={(e) => saveUsername(e.target.value)}
-                  aria-label="Leaderboard username"
+                  aria-label="Username"
                 />
               </label>
               <label className="toggle">
@@ -174,7 +146,6 @@ export default function App() {
             </div>
             {hasGoldenBike && <p className="golden-bike">🏆 Golden Bicycle Unlocked!</p>}
             <p className="best-score">Best: {bestScore}</p>
-            <LeaderboardPanel entries={leaderboard} />
           </div>
         )}
 
@@ -193,12 +164,10 @@ export default function App() {
           <div className="overlay end-overlay" role="dialog">
             <h2>{screen === 'levelcomplete' ? 'LEVEL COMPLETE!' : 'GAME OVER'}</h2>
             <p className="final-score">Score: {finalScore}</p>
-            {rank && <p className="rank">Global Rank: #{rank}</p>}
             <button className="btn-primary" onClick={handleRestart} autoFocus>
               Ride Again
             </button>
             <button onClick={() => setScreen('menu')}>Main Menu</button>
-            <LeaderboardPanel entries={leaderboard} />
           </div>
         )}
       </div>
@@ -217,26 +186,6 @@ export default function App() {
       <footer className="controls-hint">
         Space/↑ Jump · ↓ Duck · → Speed · ← Brake · Tap right to jump on mobile
       </footer>
-    </div>
-  );
-}
-
-function LeaderboardPanel({ entries }: { entries: LeaderboardEntry[] }) {
-  if (entries.length === 0) {
-    return <p className="leaderboard-empty">Leaderboard warming up…</p>;
-  }
-  return (
-    <div className="leaderboard">
-      <h3>Weekly Top 10</h3>
-      <ol>
-        {entries.map((e, i) => (
-          <li key={`${e.username}-${e.created_at}`}>
-            <span className="lb-rank">{i + 1}.</span>
-            <span className="lb-name">{e.username}</span>
-            <span className="lb-score">{e.score}</span>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }

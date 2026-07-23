@@ -1,27 +1,6 @@
 services:
   - type: web
-    name: canal-courier-api
-    runtime: docker
-    plan: free
-    rootDir: server
-    dockerfilePath: ./Dockerfile
-    healthCheckPath: /api/health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: API_KEY_SECRET
-        generateValue: true
-      - key: CORS_ORIGIN
-        sync: false
-
-  - type: web
     name: canal-courier-web
     runtime: static
     buildCommand: npm install && npm run build --workspace=client
     staticPublishPath: client/dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          name: canal-courier-api
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
