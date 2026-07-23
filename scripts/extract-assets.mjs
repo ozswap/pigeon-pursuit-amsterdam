@@ -828,22 +828,17 @@ async function extractParallaxStrips(srcPath) {
   return names;
 }
 
-/** Tileable fence strip — keyed transparent PNG (not opaque beige band). */
+/** Tileable fence strip — opaque horizontal rails from fence sprite sheet. */
 async function extractFenceTile(srcPath) {
   const outPath = join(OUT, 'spr_fence_tile.png');
-  const { data, info } = await sharp(srcPath)
-    .extract({ left: 0, top: 300, width: 1024, height: 120 })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  const bg = detectBackground(data, info.width, info.height, info.channels);
-  processTransparency(data, info.width, info.height, info.channels, bg, 40, { orphanMin: 12 });
-
-  await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-    .resize(320, 38, { kernel: sharp.kernel.nearest })
-    .png({ compressionLevel: 9 })
-    .toFile(outPath);
+  await extractParallaxStrip(
+    srcPath,
+    { left: 0, top: 60, width: 1024, height: 140 },
+    outPath,
+    320,
+    38,
+    { skyColor: [180, 165, 145], skyFillRatio: 0 },
+  );
   return 'spr_fence_tile';
 }
 
@@ -988,19 +983,21 @@ async function main() {
   }
 
   try {
-    await runExtraction();
+    await runExtraction({ uiOnly: process.argv.includes('--ui-only') });
   } finally {
     await lockFd.close();
     await unlink(LOCK).catch(() => {});
   }
 }
 
-async function runExtraction() {
-  await rm(OUT, { recursive: true, force: true });
-  await mkdir(OUT, { recursive: true });
+async function runExtraction({ uiOnly = false } = {}) {
+  if (!uiOnly) {
+    await rm(OUT, { recursive: true, force: true });
+    await mkdir(OUT, { recursive: true });
+  }
 
   const files = await readdir(RAW);
-  console.log(`Processing ${files.length} raw assets → ${OUT}\n`);
+  console.log(`Processing ${files.length} raw assets → ${OUT}${uiOnly ? ' (UI art only)' : ''}\n`);
 
   const manifest = {
     generated: new Date().toISOString(),
@@ -1010,6 +1007,36 @@ async function runExtraction() {
     singles: [],
     parallax: [],
   };
+
+  if (uiOnly) {
+    const levelFile = findFile(files, /rl2cnerl2cnerl2c__6_/);
+    if (levelFile) {
+      const levelPath = join(RAW, levelFile);
+      manifest.parallax = await extractParallaxStrips(levelPath);
+      manifest.singles.push(await extractLevelCompleteBanner(levelPath));
+      manifest.singles.push(await extractBrickGround(levelPath));
+      console.log(`Parallax: ${manifest.parallax.join(', ')}`);
+      console.log('Level banner: spr_level_complete');
+      console.log('Ground tile: spr_brick_ground');
+    }
+
+    const scoreFile = findFile(files, /rl2cnerl2cnerl2c__4_/);
+    if (scoreFile) {
+      manifest.singles.push(await extractScore100(join(RAW, scoreFile)));
+      console.log('Single: spr_score_100 (+100 popup)');
+    }
+
+    const fenceFile = findFile(files, /miqebhmiqebhmiqe__3_/);
+    if (fenceFile) {
+      manifest.parallax.push(await extractFenceTile(join(RAW, fenceFile)));
+      console.log('Fence tile: spr_fence_tile (fence sheet)');
+    }
+
+    console.log('\nVerification:');
+    for (const name of [...manifest.singles, ...manifest.parallax]) await verifySprite(name);
+    console.log('\nUI art extraction complete → client/public/assets/sprites/');
+    return;
+  }
 
   const cyclistFile = findFile(files, /rl2cnerl2cnerl2c-(?!__)/);
   if (cyclistFile) {
