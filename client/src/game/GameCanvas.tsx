@@ -53,14 +53,15 @@ export function GameCanvas({ active, crtEnabled, onGameEvent, onReady }: GameCan
     const game = gameRef.current;
     if (!game) return;
 
+    const scene = game.scene.getScene('Game') as GameScene | undefined;
+
     if (active) {
-      const scene = game.scene.getScene('Game') as GameScene | undefined;
       if (scene?.scene.isPaused()) {
         scene.scene.resume();
       } else if (!scene?.scene.isActive()) {
         game.scene.start('Game', { onGameEvent: handleGameEvent });
       }
-    } else {
+    } else if (scene && (scene.scene.isActive() || scene.scene.isPaused())) {
       game.scene.pause('Game');
     }
   }, [active, handleGameEvent]);
@@ -69,9 +70,16 @@ export function GameCanvas({ active, crtEnabled, onGameEvent, onReady }: GameCan
     const onVisibility = () => {
       const game = gameRef.current;
       if (!game) return;
+
+      const scene = game.scene.getScene('Game') as GameScene | undefined;
+
       if (document.hidden) {
-        game.scene.pause('Game');
-        onGameEvent('pause');
+        if (scene?.scene.isActive() && !scene.scene.isPaused()) {
+          game.scene.pause('Game');
+          onGameEvent('pause');
+        }
+      } else if (scene?.scene.isPaused()) {
+        onGameEvent('resume');
       }
     };
     document.addEventListener('visibilitychange', onVisibility);

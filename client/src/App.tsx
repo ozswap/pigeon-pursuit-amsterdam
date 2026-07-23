@@ -54,6 +54,7 @@ export default function App() {
       if (e.key === 'Escape' && screen === 'playing') setScreen('paused');
       if (e.key === 'Escape' && screen === 'paused') {
         visibilityPausedRef.current = false;
+        audioManager.resume();
         setScreen('playing');
       }
     };
@@ -76,6 +77,7 @@ export default function App() {
     if (event === 'resume') {
       if (visibilityPausedRef.current) {
         visibilityPausedRef.current = false;
+        audioManager.resume();
         setScreen((prev) => (prev === 'paused' ? 'playing' : prev));
       }
       return;
@@ -225,6 +227,7 @@ export default function App() {
             <h2>PAUSED</h2>
             <button onClick={() => {
               visibilityPausedRef.current = false;
+              audioManager.resume();
               setScreen('playing');
             }}>Resume</button>
             <button onClick={handleRestart}>Restart</button>
