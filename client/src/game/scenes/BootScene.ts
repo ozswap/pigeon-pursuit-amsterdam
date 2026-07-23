@@ -8,7 +8,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    const raw = '/assets/raw';
+    const raw = `${import.meta.env.BASE_URL}assets/raw`;
     this.load.image('cyclist_sheet', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c-ca4a9e5b-2a6c-49f3-b201-856e3f761e0b.png`);
     this.load.image('pigeon_sheet', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__1_-d23e3af7-b5a2-4089-bf0c-f73a0c07def1.png`);
     this.load.image('pigeon_sheet2', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__2_-d63e7c63-ecb6-466b-863f-2b579849766d.png`);
