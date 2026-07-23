@@ -60,7 +60,6 @@ export default function App() {
 
   const handleReady = (game: Phaser.Game) => {
     gameRef.current = game;
-    game.scene.start('Game', { onGameEvent: handleGameEvent });
   };
 
   const toggleCRT = () => {

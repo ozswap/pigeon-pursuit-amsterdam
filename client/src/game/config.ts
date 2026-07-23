@@ -6,7 +6,6 @@ export const PHYSICS = {
   gravity: 1200,
   jumpVelocity: -600,
   terminalVelocity: 800,
-  jumpMaxHeight: 64,
   duckHitboxReduction: 0.4,
   speedUpMultiplier: 1.5,
   brakeMultiplier: 0.75,
@@ -20,8 +19,6 @@ export const PHYSICS = {
 export const HITBOX = {
   playerCore: { w: 24, h: 48 },
   pigeonBeak: { w: 12, h: 12 },
-  cargoW: 16,
-  cargoHPerPastry: 8,
 };
 
 export const SCORING = {
@@ -29,13 +26,17 @@ export const SCORING = {
   perfectDodge: 250,
   levelComplete: 1000,
   pastryBonus: 200,
-  perfectWindowMs: 100,
 };
 
+/** Parallax layers — sky is a solid color in GameScene, not an image. */
 export const PARALLAX = [
-  { key: 'bg_scene', speed: 0.5, y: 16 },
-  { key: 'bg_foreground', speed: 1.5, y: 140 },
-];
+  { key: 'bg_buildings', speed: 0.25, y: 18, height: 45 },
+  { key: 'bg_canal', speed: 0.5, y: 62, height: 36 },
+  { key: 'bg_path', speed: 0.85, y: 98, height: 32 },
+  { key: 'spr_fence_tile', speed: 1.4, y: 142, height: 38, tileScale: 1 },
+] as const;
+
+export const SKY_COLOR = 0x6a9ab8;
 
 export const STORAGE_KEYS = {
   bestScore: 'canal_courier_best_score',

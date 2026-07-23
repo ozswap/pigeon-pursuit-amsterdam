@@ -1,80 +1,61 @@
 # Canal Courier: Pigeon Peril
 
-A retro pixel-art endless runner — dodge aggressive Amsterdam pigeons while delivering bagels by bicycle.
+Dodge Amsterdam pigeons while delivering bagels by bicycle. A retro pixel-art endless runner built with React, Vite, and Phaser 3.
 
-## Stack
-
-- **Frontend**: React + Vite + Phaser 3 (320×180, CRT shader)
-- **Hosting**: [Vercel](https://vercel.com) (static site)
-
-The game runs fully in the browser with local storage for best score, cumulative progress, and unlocks. No backend required.
-
-## Local Development
+## Quick start
 
 ```bash
 npm install
-npm run dev          # client at http://localhost:5173
+npm run extract-assets   # once, or after changing raw PNGs
+npm run dev              # http://localhost:5173
 ```
 
-### Single-file HTML
-
-For a portable, self-contained build (e.g. open locally or upload anywhere):
+## Build
 
 ```bash
-npm run build:single
+npm run build            # static site → client/dist
+npm run build:single     # self-contained HTML → dist/canal-courier.html
 ```
 
-Output:
+## Deploy (Vercel)
 
-- `client/dist-single/index.html` — Vite single-file build
-- `dist/canal-courier.html` — copy at repo root for easy sharing
+Push to `main` on GitHub. Vercel reads `vercel.json`:
 
-The file inlines JS, CSS, and sprite PNGs as base64. Google Fonts still load from the network unless you are offline.
+| Setting | Value |
+|---------|-------|
+| Build Command | `npm install && npm run build` |
+| Output Directory | `client/dist` |
 
-## Scripts
+No environment variables or backend required.
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Run the game client |
-| `npm run build` | Build the static site |
-| `npm run build:single` | Build one self-contained HTML file (`dist/canal-courier.html`) |
-| `npm run extract-assets` | Extract transparent sprites and parallax strips from raw PNGs |
-| `npm run pack-atlas` | Alias for `extract-assets` |
+## Project layout
+
+```
+client/
+  public/assets/raw/       # source Gemini PNGs (input)
+  public/assets/sprites/   # extracted transparent sprites (output)
+  src/game/scenes/         # BootScene + GameScene
+  src/App.tsx                # menu, HUD, overlays
+scripts/extract-assets.mjs   # asset pipeline (run manually)
+vercel.json                  # Vercel deploy config
+```
+
+## Asset pipeline
+
+Sprites are extracted once at build/dev time — the game loads individual PNGs from `/assets/sprites/`. No runtime sprite-sheet cropping.
+
+```bash
+npm run extract-assets
+```
 
 ## Controls
 
 | Action | Desktop | Mobile |
 |--------|---------|--------|
 | Jump | Space / ↑ | Tap right half |
-| Duck | ↓ | Swipe down |
-| Speed up | → (hold) | Hold right |
-| Brake | ← (hold) | Hold left |
-
-## Deploy to Vercel
-
-This repo includes `vercel.json` at the root for a monorepo static deploy.
-
-### One-time setup
-
-1. Go to [vercel.com](https://vercel.com) and sign in with GitHub.
-2. Click **Add New…** → **Project** → import **ozswap/pigeon-pursuit-amsterdam**.
-3. Vercel reads `vercel.json` automatically. Confirm these settings:
-
-| Field | Value |
-|-------|-------|
-| **Framework Preset** | Vite |
-| **Root Directory** | *(leave blank — repo root)* |
-| **Build Command** | `npm install && npm run build` |
-| **Output Directory** | `client/dist` |
-| **Environment Variables** | *(none — leave empty)* |
-
-4. Click **Deploy**. Push to `main` triggers auto-redeploy.
-
-No API keys, no backend, no env vars.
-
-## GitHub Account
-
-This project uses the **ozswap** GitHub account for repo and deployment integration.
+| Duck | ↓ | — |
+| Speed up | → | Hold right |
+| Brake | ← | Hold left |
 
 ## License
 
