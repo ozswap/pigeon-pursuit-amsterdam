@@ -11,9 +11,14 @@ export function deobfuscateScore(obfuscated: number): number {
   return score;
 }
 
+const BGM_MELODY = [262, 294, 330, 349, 392, 349, 330, 294] as const;
+const BGM_BASS = [131, 147, 165, 175, 196, 175, 165, 147] as const;
+
 export class AudioManager {
   private enabled: boolean;
   private ctx: AudioContext | null = null;
+  private bgmTimer: ReturnType<typeof setInterval> | null = null;
+  private bgmStep = 0;
 
   constructor(enabled: boolean) {
     this.enabled = enabled;
@@ -21,6 +26,11 @@ export class AudioManager {
 
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
+    if (!enabled) this.stopBGM();
+  }
+
+  resume() {
+    void this.ctx?.resume();
   }
 
   private getCtx(): AudioContext | null {
@@ -31,35 +41,85 @@ export class AudioManager {
     return this.ctx;
   }
 
-  playTone(freq: number, duration = 0.1, type: OscillatorType = 'square') {
+  private playTone(
+    freq: number,
+    duration = 0.1,
+    type: OscillatorType = 'square',
+    volume = 0.08,
+    startOffset = 0,
+  ) {
     const ctx = this.getCtx();
     if (!ctx) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
     osc.frequency.value = freq;
-    gain.gain.value = 0.08;
+    gain.gain.setValueAtTime(volume, ctx.currentTime + startOffset);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startOffset + duration);
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + duration);
+    osc.start(ctx.currentTime + startOffset);
+    osc.stop(ctx.currentTime + startOffset + duration);
+  }
+
+  private playArpeggio(notes: number[], noteLen = 0.06, volume = 0.06) {
+    notes.forEach((freq, i) => this.playTone(freq, noteLen, 'square', volume, i * noteLen * 0.85));
   }
 
   playBell() {
-    this.playTone(880, 0.05);
-    setTimeout(() => this.playTone(880, 0.05), 80);
+    this.playTone(880, 0.06, 'sine', 0.1);
+    this.playTone(1320, 0.08, 'sine', 0.06, 0.05);
+    this.playTone(1760, 0.1, 'sine', 0.04, 0.1);
   }
 
   playDamage() {
-    this.playTone(120, 0.2, 'sawtooth');
+    this.playTone(90, 0.25, 'sawtooth', 0.12);
+    this.playTone(55, 0.35, 'square', 0.08, 0.05);
+    this.playArpeggio([180, 140, 100, 70], 0.05, 0.05);
   }
 
   playScore() {
-    this.playTone(660, 0.08);
+    this.playArpeggio([523, 659, 784], 0.07, 0.07);
   }
 
   playSwoop() {
-    this.playTone(200, 0.15, 'triangle');
+    const ctx = this.getCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(420, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.07, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.18);
+  }
+
+  playLand() {
+    this.playTone(180, 0.04, 'triangle', 0.04);
+  }
+
+  startBGM() {
+    if (!this.enabled || this.bgmTimer) return;
+    this.bgmStep = 0;
+    this.bgmTimer = setInterval(() => {
+      const i = this.bgmStep % BGM_MELODY.length;
+      this.playTone(BGM_MELODY[i], 0.14, 'square', 0.035);
+      if (i % 2 === 0) {
+        this.playTone(BGM_BASS[i], 0.2, 'triangle', 0.025);
+      }
+      this.bgmStep += 1;
+    }, 280);
+  }
+
+  stopBGM() {
+    if (this.bgmTimer) {
+      clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
+    }
   }
 }
 

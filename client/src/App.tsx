@@ -8,6 +8,10 @@ import './App.css';
 
 type Screen = 'menu' | 'playing' | 'paused' | 'gameover' | 'levelcomplete';
 
+function isTouchDevice() {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [crtEnabled, setCrtEnabled] = useState(
@@ -23,7 +27,12 @@ export default function App() {
     () => parseInt(localStorage.getItem(STORAGE_KEYS.bestScore) ?? '0', 10)
   );
   const [finalScore, setFinalScore] = useState(0);
+  const [beatBest, setBeatBest] = useState(false);
+  const [showControlsHint, setShowControlsHint] = useState(
+    () => localStorage.getItem(STORAGE_KEYS.controlsSeen) !== 'true'
+  );
   const [showEpilepsyWarning, setShowEpilepsyWarning] = useState(true);
+  const [touchDevice] = useState(isTouchDevice);
   const gameRef = useRef<Phaser.Game | null>(null);
 
   useEffect(() => {
@@ -39,7 +48,8 @@ export default function App() {
     (event: string, data?: Record<string, unknown>) => {
       if (event === 'game_over' || event === 'level_complete') {
         const score = (data?.score as number) ?? 0;
-        const cumulative = saveBestScore(score);
+        const { cumulative, isNewBest } = saveBestScore(score);
+        if (isNewBest) setBeatBest(true);
         setBestScore(Math.max(bestScore, score));
         setFinalScore(score);
 
@@ -55,6 +65,12 @@ export default function App() {
 
   const startGame = () => {
     setShowEpilepsyWarning(false);
+    setBeatBest(false);
+    audioManager.resume();
+    if (showControlsHint) {
+      localStorage.setItem(STORAGE_KEYS.controlsSeen, 'true');
+      setShowControlsHint(false);
+    }
     setScreen('playing');
   };
 
@@ -87,6 +103,8 @@ export default function App() {
   };
 
   const handleRestart = () => {
+    setBeatBest(false);
+    audioManager.resume();
     if (gameRef.current) {
       restartGame(gameRef.current);
       gameRef.current.scene.start('Game', { onGameEvent: handleGameEvent });
@@ -112,6 +130,13 @@ export default function App() {
           onGameEvent={handleGameEvent}
           onReady={handleReady}
         />
+
+        {screen === 'playing' && touchDevice && (
+          <div className="touch-zones" aria-hidden="true">
+            <div className="touch-zone touch-zone-left">← BRAKE</div>
+            <div className="touch-zone touch-zone-right">JUMP →</div>
+          </div>
+        )}
 
         {screen === 'menu' && (
           <div className="overlay menu-overlay" role="dialog" aria-label="Main menu">
@@ -144,7 +169,10 @@ export default function App() {
               </label>
             </div>
             {hasGoldenBike && <p className="golden-bike">🏆 Golden Bicycle Unlocked!</p>}
-            <p className="best-score">Best: {bestScore}</p>
+            <p className={`best-score ${beatBest ? 'best-score-new' : ''}`}>
+              Best: {bestScore}
+              {beatBest && <span className="new-record"> NEW!</span>}
+            </p>
           </div>
         )}
 
@@ -160,9 +188,19 @@ export default function App() {
         )}
 
         {(screen === 'gameover' || screen === 'levelcomplete') && (
-          <div className="overlay end-overlay" role="dialog">
+          <div
+            className={`overlay end-overlay ${screen === 'levelcomplete' ? 'end-overlay-win' : 'end-overlay-loss'}`}
+            role="dialog"
+          >
+            <p className="end-emoji">{screen === 'levelcomplete' ? '🎉' : '🥯💨'}</p>
             <h2>{screen === 'levelcomplete' ? 'LEVEL COMPLETE!' : 'GAME OVER'}</h2>
-            <p className="final-score">Score: {finalScore}</p>
+            <p className="final-score">
+              Score: <span className="score-value">{finalScore}</span>
+            </p>
+            {beatBest && (
+              <p className="new-best-banner">★ NEW BEST SCORE! ★</p>
+            )}
+            <p className="end-best">Best: {bestScore}</p>
             <button className="btn-primary" onClick={handleRestart} autoFocus>
               Ride Again
             </button>
@@ -182,9 +220,11 @@ export default function App() {
         </button>
       )}
 
-      <footer className="controls-hint">
-        Space/↑ Jump · ↓ Duck · → Speed · ← Brake · Tap right to jump on mobile
-      </footer>
+      {showControlsHint && screen !== 'playing' && (
+        <footer className="controls-hint">
+          Space/↑ Jump · ↓ Duck · → Speed · ← Brake · Tap right to jump on mobile
+        </footer>
+      )}
     </div>
   );
 }

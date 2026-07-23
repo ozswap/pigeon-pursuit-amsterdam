@@ -7,6 +7,7 @@ import {
   PHYSICS,
   SCORING,
   SKY_COLOR,
+  SPAWN,
 } from '../config';
 import { audioManager } from '../audio';
 
@@ -48,11 +49,11 @@ const SMOKE_FRAMES = [
 
 /** Scale sprites to consistent on-screen sizes (source PNGs vary widely). */
 const SCALE = {
-  player: 0.32,
-  playerDuck: 0.32,
-  cargo: 0.08,
-  pigeon: 0.22,
-  arrow: 0.12,
+  player: 0.34,
+  playerDuck: 0.34,
+  cargo: 0.1,
+  pigeon: 0.24,
+  arrow: 0.13,
   smoke: 0.18,
   scorePopup: 0.06,
   pastryDrop: 0.05,
@@ -84,6 +85,7 @@ export class GameScene extends Phaser.Scene {
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private pointerDownRight = false;
   private pointerDownLeft = false;
+  private dustTimer = 0;
   private scoreText!: Phaser.GameObjects.Text;
   private pastryText!: Phaser.GameObjects.Text;
   private onGameEvent?: (event: string, data?: Record<string, unknown>) => void;
@@ -126,8 +128,15 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(200);
 
-    this.events.on('pause', () => this.onGameEvent?.('pause'));
-    this.events.on('resume', () => this.onGameEvent?.('resume'));
+    this.events.on('pause', () => {
+      audioManager.stopBGM();
+      this.onGameEvent?.('pause');
+    });
+    this.events.on('resume', () => {
+      audioManager.startBGM();
+      this.onGameEvent?.('resume');
+    });
+    audioManager.startBGM();
     this.onGameEvent?.('level_start', { level_id: this.level });
   }
 
@@ -147,7 +156,8 @@ export class GameScene extends Phaser.Scene {
     this.invincibleUntil = 0;
     this.gameOver = false;
     this.levelComplete = false;
-    this.spawnTimer = 2;
+    this.spawnTimer = SPAWN.initialDelay;
+    this.dustTimer = 0;
     this.pigeonPool = [];
     this.parallaxLayers = [];
   }
@@ -165,6 +175,8 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(5);
 
+    this.createGroundDetail();
+
     PARALLAX.forEach((layer, i) => {
       const ts = this.add
         .tileSprite(0, layer.y, GAME_WIDTH * 2, layer.height, layer.key)
@@ -178,6 +190,20 @@ export class GameScene extends Phaser.Scene {
 
       this.parallaxLayers.push(ts);
     });
+  }
+
+  /** Subtle paving/brick lines along the ride surface. */
+  private createGroundDetail() {
+    const g = this.add.graphics().setDepth(6).setScrollFactor(0);
+    const y = PHYSICS.groundY - 1;
+    g.lineStyle(1, 0x8b7355, 0.55);
+    g.lineBetween(0, y, GAME_WIDTH, y);
+
+    g.fillStyle(0x6b5a48, 0.35);
+    for (let x = 0; x < GAME_WIDTH; x += 12) {
+      const h = x % 24 === 0 ? 3 : 2;
+      g.fillRect(x, y + 2, 10, h);
+    }
   }
 
   private createPlayer() {
@@ -282,6 +308,61 @@ export class GameScene extends Phaser.Scene {
       this.isJumping = true;
       this.jumpVy = PHYSICS.jumpVelocity;
       this.setCyclistFrame(0);
+      this.playJumpSquash();
+    }
+  }
+
+  private playJumpSquash() {
+    const baseX = this.isDucking ? SCALE.playerDuck : SCALE.player;
+    const baseY = this.isDucking ? SCALE.playerDuck * 0.75 : SCALE.player;
+    this.tweens.add({
+      targets: this.player,
+      scaleX: baseX * 0.82,
+      scaleY: baseY * 1.18,
+      duration: 70,
+      yoyo: true,
+      ease: 'Quad.easeOut',
+    });
+  }
+
+  private playLandSquash() {
+    const baseX = this.isDucking ? SCALE.playerDuck : SCALE.player;
+    const baseY = this.isDucking ? SCALE.playerDuck * 0.75 : SCALE.player;
+    this.tweens.add({
+      targets: this.player,
+      scaleX: baseX * 1.15,
+      scaleY: baseY * 0.72,
+      duration: 55,
+      yoyo: true,
+      repeat: 1,
+      ease: 'Bounce.easeOut',
+    });
+    audioManager.playLand();
+    this.cameras.main.shake(60, 0.004);
+  }
+
+  private spawnPedalDust() {
+    const colors = [0xc4a882, 0xa89070, 0xd4c4a8];
+    for (let i = 0; i < 2; i++) {
+      const dust = this.add
+        .circle(
+          this.player.x - 10 - i * 4,
+          this.playerY - 2 + i,
+          1.5 + Math.random(),
+          colors[i % colors.length],
+          0.55,
+        )
+        .setDepth(45);
+      this.tweens.add({
+        targets: dust,
+        x: dust.x - 12 - Math.random() * 8,
+        y: dust.y + 2 + Math.random() * 3,
+        alpha: 0,
+        scale: 0.2,
+        duration: 220 + i * 40,
+        ease: 'Quad.easeOut',
+        onComplete: () => dust.destroy(),
+      });
     }
   }
 
@@ -296,6 +377,7 @@ export class GameScene extends Phaser.Scene {
         this.playerY = PHYSICS.groundY;
         this.isJumping = false;
         this.jumpVy = 0;
+        this.playLandSquash();
       }
     }
 
@@ -325,6 +407,15 @@ export class GameScene extends Phaser.Scene {
       this.pedalFrame = (this.pedalFrame + 1) % PLAYER_PEDAL_FRAMES.length;
       this.setCyclistFrame(this.pedalFrame);
     }
+
+    if (!this.isDucking && this.speedMult >= 1) {
+      this.dustTimer += dt;
+      const dustRate = 0.12 / this.speedMult;
+      if (this.dustTimer >= dustRate) {
+        this.dustTimer = 0;
+        this.spawnPedalDust();
+      }
+    }
   }
 
   private updateParallax(dt: number) {
@@ -336,7 +427,10 @@ export class GameScene extends Phaser.Scene {
 
   private updateSpawner(dt: number) {
     this.spawnTimer -= dt;
-    const rate = Math.max(0.5, 3.0 - this.distance * 0.001);
+    const rate = Math.max(
+      SPAWN.minInterval,
+      SPAWN.baseInterval - this.distance * SPAWN.rampPerMeter,
+    );
     if (this.spawnTimer <= 0) {
       this.spawnPigeon();
       this.spawnTimer = rate;
@@ -349,8 +443,8 @@ export class GameScene extends Phaser.Scene {
 
   private spawnPigeon() {
     let variant: PigeonVariant = 'standard';
-    if (this.level >= 5 && Math.random() < 0.2) variant = 'flock';
-    else if (this.level >= 3 && Math.random() < 0.3) variant = 'divebomber';
+    if (this.level >= 6 && Math.random() < 0.18) variant = 'flock';
+    else if (this.level >= 4 && Math.random() < 0.25) variant = 'divebomber';
 
     const count = variant === 'flock' ? 3 : 1;
     for (let i = 0; i < count; i++) {
@@ -379,18 +473,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createTelegraph(x: number, y: number): Phaser.GameObjects.Container {
-    const c = this.add.container(x, y).setDepth(100).setScrollFactor(0);
+    const c = this.add.container(x, y).setDepth(100);
     const arrow = this.add
       .image(0, 0, 'spr_telegraph_arrow')
       .setOrigin(0.5, 0)
       .setScale(SCALE.arrow);
     c.add(arrow);
     this.tweens.add({
-      targets: c,
-      alpha: { from: 1, to: 0.2 },
-      duration: 200,
+      targets: arrow,
+      scaleY: SCALE.arrow * 1.35,
+      scaleX: SCALE.arrow * 1.1,
+      alpha: { from: 1, to: 0.25 },
+      duration: 400,
       yoyo: true,
-      repeat: 3,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
     });
     return c;
   }
@@ -428,6 +525,9 @@ export class GameScene extends Phaser.Scene {
         case 'targeting':
           pigeon.sprite.x = GAME_WIDTH - 30;
           pigeon.sprite.y = 15 + Math.sin(pigeon.timer * 4) * 3;
+          if (pigeon.telegraph) {
+            pigeon.telegraph.setPosition(pigeon.sprite.x, pigeon.sprite.y + 14);
+          }
           if (pigeon.timer >= PHYSICS.telegraphDuration / 1000) {
             pigeon.state = 'swoop';
             pigeon.timer = 0;
@@ -524,7 +624,7 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => lost.destroy(),
     });
 
-    this.cameras.main.shake(150, 0.01);
+    this.cameras.main.shake(220, 0.018);
 
     if (this.pastries <= 0) {
       this.triggerGameOver();
@@ -532,12 +632,26 @@ export class GameScene extends Phaser.Scene {
   }
 
   private awardDodge(pigeon: PigeonObj) {
-    const nearMiss = Math.abs(pigeon.sprite.x - this.player.x) < 20;
+    const nearMiss = Math.abs(pigeon.sprite.x - this.player.x) < PHYSICS.perfectDodgeWindow;
     const points = nearMiss ? SCORING.perfectDodge : SCORING.dodge;
     this.score += points;
     audioManager.playScore();
-    if (nearMiss) audioManager.playBell();
+    if (nearMiss) {
+      audioManager.playBell();
+      this.playPerfectDodgeBounce();
+    }
     this.showFloatingScore(pigeon.sprite.x, pigeon.sprite.y, points, nearMiss);
+  }
+
+  private playPerfectDodgeBounce() {
+    const cam = this.cameras.main;
+    this.tweens.add({
+      targets: cam,
+      zoom: 1.025,
+      duration: 90,
+      yoyo: true,
+      ease: 'Back.easeOut',
+    });
   }
 
   private showFloatingScore(x: number, y: number, points: number, perfect: boolean) {
@@ -576,11 +690,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateCargoVisual() {
-    const wobble = (PHYSICS.startingPastries - this.pastries) * 2;
+    const lost = PHYSICS.startingPastries - this.pastries;
+    const wobble = 4 + lost * 3;
     this.tweens.add({
       targets: this.cargo,
       angle: { from: -wobble, to: wobble },
-      duration: 100,
+      y: this.cargo.y + 3,
+      duration: 80,
+      yoyo: true,
+      repeat: 3,
+      ease: 'Sine.easeInOut',
+    });
+    this.tweens.add({
+      targets: this.cargo,
+      scaleX: this.cargo.scaleX * 1.15,
+      scaleY: this.cargo.scaleY * 0.85,
+      duration: 60,
       yoyo: true,
       repeat: 2,
     });
@@ -588,6 +713,7 @@ export class GameScene extends Phaser.Scene {
 
   private triggerGameOver() {
     this.gameOver = true;
+    audioManager.stopBGM();
     this.onGameEvent?.('game_over', {
       score: this.score,
       pastries: this.pastries,
@@ -599,6 +725,7 @@ export class GameScene extends Phaser.Scene {
 
   private triggerLevelComplete() {
     this.levelComplete = true;
+    audioManager.stopBGM();
     const cargoBonus = this.pastries * SCORING.pastryBonus;
     this.score += SCORING.levelComplete + cargoBonus;
     this.onGameEvent?.('level_complete', {
@@ -611,9 +738,15 @@ export class GameScene extends Phaser.Scene {
       .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'spr_level_complete')
       .setDepth(300)
       .setScrollFactor(0)
-      .setScale(SCALE.levelBanner)
+      .setScale(0.5)
       .setAlpha(0);
-    this.tweens.add({ targets: overlay, alpha: 1, duration: 500 });
+    this.tweens.add({
+      targets: overlay,
+      alpha: 1,
+      scale: SCALE.levelBanner,
+      duration: 600,
+      ease: 'Back.easeOut',
+    });
     this.scene.pause();
   }
 

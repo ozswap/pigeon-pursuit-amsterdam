@@ -10,10 +10,19 @@ export const PHYSICS = {
   speedUpMultiplier: 1.5,
   brakeMultiplier: 0.75,
   iFrameDuration: 1500,
-  telegraphDuration: 800,
+  telegraphDuration: 1000,
+  perfectDodgeWindow: 28,
   startingPastries: 10,
   groundY: 150,
   playerX: 80,
+};
+
+/** Pigeon spawn pacing — gentler early curve, ramps with distance. */
+export const SPAWN = {
+  initialDelay: 4.5,
+  baseInterval: 4.5,
+  minInterval: 1.1,
+  rampPerMeter: 0.00035,
 };
 
 export const HITBOX = {
@@ -30,10 +39,10 @@ export const SCORING = {
 
 /** Parallax layers — sky is a solid color in GameScene, not an image. */
 export const PARALLAX = [
-  { key: 'bg_buildings', speed: 0.25, y: 18, height: 45 },
-  { key: 'bg_canal', speed: 0.5, y: 62, height: 36 },
-  { key: 'bg_path', speed: 0.85, y: 98, height: 32 },
-  { key: 'spr_fence_tile', speed: 1.4, y: 142, height: 38, tileScale: 1 },
+  { key: 'bg_buildings', speed: 0.16, y: 18, height: 45 },
+  { key: 'bg_canal', speed: 0.34, y: 62, height: 36 },
+  { key: 'bg_path', speed: 0.68, y: 98, height: 32 },
+  { key: 'spr_fence_tile', speed: 1.1, y: 142, height: 38, tileScale: 1 },
 ] as const;
 
 export const SKY_COLOR = 0x6a9ab8;
@@ -43,6 +52,7 @@ export const STORAGE_KEYS = {
   cumulative: 'canal_courier_cumulative',
   crtEnabled: 'canal_courier_crt',
   soundEnabled: 'canal_courier_sound',
+  controlsSeen: 'canal_courier_controls_seen',
   username: 'canal_courier_username',
   goldenBike: 'canal_courier_golden_bike',
 };
