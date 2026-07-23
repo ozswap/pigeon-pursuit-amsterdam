@@ -99,15 +99,16 @@ export class AudioManager {
   }
 
   playLand() {
-    this.playTone(180, 0.04, 'triangle', 0.04);
+    this.playTone(180, 0.04, 'triangle', 0.06);
   }
 
   startBGM() {
-    if (!this.enabled || this.bgmTimer) return;
+    this.stopBGM();
+    if (!this.enabled) return;
     this.bgmStep = 0;
     this.bgmTimer = setInterval(() => {
       const i = this.bgmStep % BGM_MELODY.length;
-      this.playTone(BGM_MELODY[i], 0.14, 'square', 0.035);
+      this.playTone(BGM_MELODY[i], 0.14, 'triangle', 0.028);
       if (i % 2 === 0) {
         this.playTone(BGM_BASS[i], 0.2, 'triangle', 0.025);
       }
