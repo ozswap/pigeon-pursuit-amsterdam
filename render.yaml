@@ -1,9 +1,3 @@
-databases:
-  - name: canal-courier-db
-    plan: free
-    databaseName: canal_courier
-    user: canal_courier
-
 services:
   - type: web
     name: canal-courier-api
@@ -12,16 +6,11 @@ services:
     rootDir: server
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
-    preDeployCommand: node dist/db/migrate.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: API_KEY_SECRET
         generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: canal-courier-db
-          property: connectionString
       - key: CORS_ORIGIN
         sync: false
 

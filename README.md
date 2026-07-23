@@ -5,7 +5,7 @@ A retro pixel-art endless runner — dodge aggressive Amsterdam pigeons while de
 ## Stack
 
 - **Frontend**: React + Vite + Phaser 3 (320×180, CRT shader)
-- **Backend**: Node.js + Express + PostgreSQL
+- **Backend**: Node.js + Express (in-memory leaderboard)
 - **Hosting**: Render (free tier)
 
 ## Local Development
@@ -17,13 +17,6 @@ npm run dev:client   # frontend only
 npm run dev:server   # API only
 ```
 
-Set `DATABASE_URL` for leaderboard features:
-
-```bash
-export DATABASE_URL=postgres://localhost:5432/canal_courier
-npm run migrate
-```
-
 ## Scripts
 
 | Command | Description |
@@ -31,7 +24,6 @@ npm run migrate
 | `npm run dev` | Run client + server concurrently |
 | `npm run build` | Build both workspaces |
 | `npm run test` | Run server Jest tests |
-| `npm run migrate` | Apply Postgres schema |
 | `npm run pack-atlas` | Slice sprite sheets into atlas frames |
 
 ## Controls
@@ -54,7 +46,7 @@ npm run migrate
 
 - **Static site** (game): always on
 - **Web service** (API): spins down after 15 min idle (~1 min cold start)
-- **Postgres**: free tier expires after 30 days — upgrade to Basic ($6/mo) for persistence
+- **Leaderboard**: stored in memory — resets when the API restarts or redeploys
 
 ## GitHub Account
 
