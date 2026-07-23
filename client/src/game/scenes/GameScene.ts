@@ -589,6 +589,7 @@ export class GameScene extends Phaser.Scene {
             pigeon.state = 'swoop';
             pigeon.timer = 0;
             pigeon.targetX = this.player.x;
+            audioManager.playSwoop();
           }
           break;
 
@@ -614,7 +615,6 @@ export class GameScene extends Phaser.Scene {
               this.takeDamage(pigeon);
             } else if (!overlapping && !invincible) {
               this.awardDodge(pigeon);
-              audioManager.playSwoop();
             }
             this.destroyTelegraph(pigeon);
             pigeon.state = 'recover';
@@ -696,10 +696,11 @@ export class GameScene extends Phaser.Scene {
     const nearMiss = Math.abs(pigeon.sprite.x - this.player.x) < PHYSICS.perfectDodgeWindow;
     const points = nearMiss ? SCORING.perfectDodge : SCORING.dodge;
     this.score += points;
-    audioManager.playScore();
     if (nearMiss) {
       audioManager.playBell();
       this.playPerfectDodgeBounce();
+    } else {
+      audioManager.playScore();
     }
     this.showFloatingScore(pigeon.sprite.x, pigeon.sprite.y, points, nearMiss);
   }

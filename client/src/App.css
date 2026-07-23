@@ -52,6 +52,13 @@ body {
   background: #1a1a2e;
 }
 
+.game-wrapper--playing {
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .game-canvas {
   width: 100%;
   height: 100%;
@@ -83,6 +90,7 @@ body {
 }
 
 .menu-overlay h2,
+.pause-overlay h2,
 .end-overlay h2 {
   font-size: clamp(0.5rem, 2.5vw, 0.8rem);
   text-align: center;
@@ -253,12 +261,17 @@ button:focus {
 }
 
 .pause-btn {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
+  position: absolute;
+  top: max(0.5rem, env(safe-area-inset-top, 0px));
+  right: max(0.5rem, env(safe-area-inset-right, 0px));
   z-index: 20;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1rem;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   border: none;
   padding: 0.5rem;
 }
@@ -271,6 +284,34 @@ button:focus {
   line-height: 1.8;
 }
 
+.controls-hint-mobile {
+  display: none;
+}
+
 @media (max-width: 480px) {
-  .controls-hint { font-size: 0.3rem; }
+  .controls-hint {
+    font-size: 0.3rem;
+  }
+
+  .controls-hint-desktop {
+    display: none;
+  }
+
+  .controls-hint-mobile {
+    display: inline;
+  }
+
+  .touch-zone {
+    font-size: 0.38rem;
+    color: rgba(255, 255, 255, 0.45);
+    padding-bottom: 0.75rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .touch-zone {
+    font-size: 0.38rem;
+    color: rgba(255, 255, 255, 0.45);
+    padding-bottom: 0.75rem;
+  }
 }

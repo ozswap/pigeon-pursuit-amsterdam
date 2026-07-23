@@ -8,8 +8,19 @@ import './App.css';
 
 type Screen = 'menu' | 'playing' | 'paused' | 'gameover' | 'levelcomplete';
 
-function isTouchDevice() {
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+function useCoarsePointer() {
+  const [coarsePointer, setCoarsePointer] = useState(
+    () => window.matchMedia('(pointer: coarse)').matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    const onChange = (e: MediaQueryListEvent) => setCoarsePointer(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  return coarsePointer;
 }
 
 export default function App() {
@@ -23,53 +34,84 @@ export default function App() {
   const [username, setUsername] = useState(
     () => localStorage.getItem(STORAGE_KEYS.username) ?? 'Rider'
   );
-  const [bestScore, setBestScore] = useState(
-    () => parseInt(localStorage.getItem(STORAGE_KEYS.bestScore) ?? '0', 10)
-  );
+  const [bestScore, setBestScore] = useState(() => {
+    const parsed = parseInt(localStorage.getItem(STORAGE_KEYS.bestScore) ?? '0', 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  });
+  const [goldenUnlock, setGoldenUnlock] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
   const [beatBest, setBeatBest] = useState(false);
   const [showControlsHint, setShowControlsHint] = useState(
     () => localStorage.getItem(STORAGE_KEYS.controlsSeen) !== 'true'
   );
   const [showEpilepsyWarning, setShowEpilepsyWarning] = useState(true);
-  const [touchDevice] = useState(isTouchDevice);
+  const touchDevice = useCoarsePointer();
   const gameRef = useRef<Phaser.Game | null>(null);
+  const visibilityPausedRef = useRef(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && screen === 'playing') setScreen('paused');
-      if (e.key === 'Escape' && screen === 'paused') setScreen('playing');
+      if (e.key === 'Escape' && screen === 'paused') {
+        visibilityPausedRef.current = false;
+        setScreen('playing');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [screen]);
 
-  const handleGameEvent = useCallback(
-    (event: string, data?: Record<string, unknown>) => {
-      if (event === 'game_over' || event === 'level_complete') {
-        const score = (data?.score as number) ?? 0;
-        const { cumulative, isNewBest } = saveBestScore(score);
-        if (isNewBest) setBeatBest(true);
-        setBestScore(Math.max(bestScore, score));
-        setFinalScore(score);
-
-        if (cumulative >= GOLDEN_BIKE_THRESHOLD) {
-          localStorage.setItem(STORAGE_KEYS.goldenBike, 'true');
+  const handleGameEvent = useCallback((event: string, data?: Record<string, unknown>) => {
+    if (event === 'pause') {
+      setScreen((prev) => {
+        if (prev === 'playing') {
+          visibilityPausedRef.current = true;
+          return 'paused';
         }
+        return prev;
+      });
+      return;
+    }
 
-        setScreen(event === 'level_complete' ? 'levelcomplete' : 'gameover');
+    if (event === 'resume') {
+      if (visibilityPausedRef.current) {
+        visibilityPausedRef.current = false;
+        setScreen((prev) => (prev === 'paused' ? 'playing' : prev));
       }
-    },
-    [bestScore]
-  );
+      return;
+    }
+
+    if (event === 'game_over' || event === 'level_complete') {
+      const score = (data?.score as number) ?? 0;
+      const hadGolden = localStorage.getItem(STORAGE_KEYS.goldenBike) === 'true';
+      const { cumulative, isNewBest } = saveBestScore(score);
+      if (isNewBest) setBeatBest(true);
+      const stored = parseInt(localStorage.getItem(STORAGE_KEYS.bestScore) ?? '0', 10);
+      setBestScore(Number.isFinite(stored) ? stored : 0);
+      setFinalScore(score);
+
+      if (cumulative >= GOLDEN_BIKE_THRESHOLD) {
+        localStorage.setItem(STORAGE_KEYS.goldenBike, 'true');
+        if (!hadGolden) setGoldenUnlock(true);
+      }
+
+      setScreen(event === 'level_complete' ? 'levelcomplete' : 'gameover');
+    }
+  }, []);
 
   const startGame = () => {
     setShowEpilepsyWarning(false);
     setBeatBest(false);
+    setGoldenUnlock(false);
+    visibilityPausedRef.current = false;
     audioManager.resume();
     if (showControlsHint) {
       localStorage.setItem(STORAGE_KEYS.controlsSeen, 'true');
       setShowControlsHint(false);
+    }
+    if (gameRef.current) {
+      restartGame(gameRef.current);
+      gameRef.current.scene.start('Game', { onGameEvent: handleGameEvent });
     }
     setScreen('playing');
   };
@@ -104,6 +146,8 @@ export default function App() {
 
   const handleRestart = () => {
     setBeatBest(false);
+    setGoldenUnlock(false);
+    visibilityPausedRef.current = false;
     audioManager.resume();
     if (gameRef.current) {
       restartGame(gameRef.current);
@@ -123,7 +167,7 @@ export default function App() {
         </h1>
       </header>
 
-      <div className="game-wrapper">
+      <div className={`game-wrapper${screen === 'playing' ? ' game-wrapper--playing' : ''}`}>
         <GameCanvas
           active={screen === 'playing'}
           crtEnabled={crtEnabled}
@@ -179,10 +223,21 @@ export default function App() {
         {screen === 'paused' && (
           <div className="overlay pause-overlay" role="dialog" aria-label="Pause menu">
             <h2>PAUSED</h2>
-            <button onClick={() => setScreen('playing')}>Resume</button>
+            <button onClick={() => {
+              visibilityPausedRef.current = false;
+              setScreen('playing');
+            }}>Resume</button>
             <button onClick={handleRestart}>Restart</button>
-            <button onClick={toggleCRT}>Toggle CRT ({crtEnabled ? 'ON' : 'OFF'})</button>
-            <button onClick={toggleSound}>Sound ({soundEnabled ? 'ON' : 'OFF'})</button>
+            <div className="menu-settings">
+              <label className="toggle">
+                <input type="checkbox" checked={crtEnabled} onChange={toggleCRT} />
+                CRT Filter {crtEnabled ? 'ON' : 'OFF'}
+              </label>
+              <label className="toggle">
+                <input type="checkbox" checked={soundEnabled} onChange={toggleSound} />
+                Sound {soundEnabled ? 'ON' : 'OFF'}
+              </label>
+            </div>
             <button onClick={() => setScreen('menu')}>Main Menu</button>
           </div>
         )}
@@ -200,6 +255,7 @@ export default function App() {
             {beatBest && (
               <p className="new-best-banner">★ NEW BEST SCORE! ★</p>
             )}
+            {goldenUnlock && <p className="golden-bike">🏆 Golden Bicycle Unlocked!</p>}
             <p className="end-best">Best: {bestScore}</p>
             <button className="btn-primary" onClick={handleRestart} autoFocus>
               Ride Again
@@ -207,22 +263,25 @@ export default function App() {
             <button onClick={() => setScreen('menu')}>Main Menu</button>
           </div>
         )}
-      </div>
 
-      {screen === 'playing' && (
-        <button
-          className="pause-btn"
-          onClick={() => setScreen('paused')}
-          aria-label="Pause game"
-          tabIndex={0}
-        >
-          ⏸
-        </button>
-      )}
+        {screen === 'playing' && (
+          <button
+            className="pause-btn"
+            onClick={() => setScreen('paused')}
+            aria-label="Pause game"
+            tabIndex={0}
+          >
+            ⏸
+          </button>
+        )}
+      </div>
 
       {showControlsHint && screen !== 'playing' && (
         <footer className="controls-hint">
-          Space/↑ Jump · ↓ Duck · → Speed · ← Brake · Tap right to jump on mobile
+          <span className="controls-hint-desktop">
+            Space/↑ Jump · ↓ Duck · → Speed · ← Brake
+          </span>
+          <span className="controls-hint-mobile">Tap right: Jump · Tap left: Brake</span>
         </footer>
       )}
     </div>
