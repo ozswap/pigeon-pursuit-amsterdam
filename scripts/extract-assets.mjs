@@ -828,17 +828,22 @@ async function extractParallaxStrips(srcPath) {
   return names;
 }
 
-/** Tileable fence strip — opaque horizontal rails from fence sprite sheet. */
+/** Tileable fence strip — one post period, horizontal rails, transparent bg. */
 async function extractFenceTile(srcPath) {
   const outPath = join(OUT, 'spr_fence_tile.png');
-  await extractParallaxStrip(
-    srcPath,
-    { left: 0, top: 60, width: 1024, height: 140 },
-    outPath,
-    320,
-    38,
-    { skyColor: [180, 165, 145], skyFillRatio: 0 },
-  );
+  const { data, info } = await sharp(srcPath)
+    .extract({ left: 0, top: 72, width: 512, height: 96 })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const bg = detectBackground(data, info.width, info.height, info.channels);
+  processTransparency(data, info.width, info.height, info.channels, bg, 32, { orphanMin: 10 });
+
+  await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    .resize(320, 38, { kernel: sharp.kernel.nearest })
+    .png({ compressionLevel: 9 })
+    .toFile(outPath);
   return 'spr_fence_tile';
 }
 
