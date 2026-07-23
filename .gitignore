@@ -7,4 +7,3 @@ dist/
 coverage/
 client/dist/
 client/dist-single/
-server/dist/
