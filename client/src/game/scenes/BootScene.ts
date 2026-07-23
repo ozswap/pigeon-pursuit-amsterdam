@@ -1,13 +1,30 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { GameScene } from './GameScene';
-import cyclistSheet from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c-ca4a9e5b-2a6c-49f3-b201-856e3f761e0b.png';
-import pigeonSheet from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__1_-d23e3af7-b5a2-4089-bf0c-f73a0c07def1.png';
-import pigeonSheet2 from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__2_-d63e7c63-ecb6-466b-863f-2b579849766d.png';
-import pastryStack from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__3_-e12ca839-68e9-47be-b729-a391c8194d63.png';
-import score100 from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__4_-61cacb89-86d2-40a0-a17e-f448def1053a.png';
-import pastrySingle from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__5_-b38897b1-da5a-4c56-bd10-dd038c73a4dd.png';
-import levelComplete from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__6_-402e31e6-7859-41d6-8fdf-72eea1c74994.png';
+import cyclistSheet from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c-381f7157-9da0-4d3c-85f7-12cd1f0f95c7.png';
+import pigeonSheet from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__1_-d795843a-11ba-4728-9c55-000a1c69810f.png';
+import pigeonSheet2 from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__2_-d4d27ed2-1de3-4945-938a-65763d8624a2.png';
+import pastryStack from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__3_-e9a8ac8b-6c58-47fa-a9ac-65e674b72812.png';
+import score100 from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__4_-2f846216-a6bf-4330-bd62-ff4bf5635033.png';
+import pastrySingle from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__5_-fdedc523-7aa3-4f45-bacd-e4aefa5c975e.png';
+import levelComplete from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__6_-b6fa4ed8-ef4d-4418-b743-7583ac80adbe.png';
+import telegraphArrow from '../../../public/assets/raw/Gemini_Generated_Image_miqebhmiqebhmiqe__1_-4ee5f804-ee6e-4ee1-955f-5ba59cbe07eb.png';
+import smokeVfx from '../../../public/assets/raw/Gemini_Generated_Image_miqebhmiqebhmiqe__2_-112391b5-f155-4757-8d16-35bbee94a205.png';
+import fenceTile from '../../../public/assets/raw/Gemini_Generated_Image_miqebhmiqebhmiqe__3_-0e37e756-f43c-4d99-807f-7e603fbabad1.png';
+
+const TEXTURE_KEYS = [
+  'cyclist_sheet',
+  'pigeon_sheet',
+  'pigeon_sheet2',
+  'pastry_stack',
+  'pastry_single',
+  'score_100',
+  'level_complete',
+  'bg_parallax',
+  'telegraph_arrow',
+  'smoke_vfx',
+  'fence_tile',
+] as const;
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -23,17 +40,15 @@ export class BootScene extends Phaser.Scene {
     this.load.image('pastry_single', pastrySingle);
     this.load.image('level_complete', levelComplete);
     this.load.image('bg_parallax', levelComplete);
+    this.load.image('telegraph_arrow', telegraphArrow);
+    this.load.image('smoke_vfx', smokeVfx);
+    this.load.image('fence_tile', fenceTile);
   }
 
   create() {
-    this.textures.get('cyclist_sheet').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get('pigeon_sheet').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get('pigeon_sheet2').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get('pastry_stack').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get('pastry_single').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get('score_100').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get('level_complete').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get('bg_parallax').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    for (const key of TEXTURE_KEYS) {
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
 
     this.registry.set('loadTime', performance.now());
     this.events.emit('assets-ready');

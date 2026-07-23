@@ -32,6 +32,9 @@ const PIGEON_FRAMES = [
   { x: 0.69, y: 0.52, w: 0.28, h: 0.42 },
 ];
 
+const SMOKE_FRAMES = 6;
+const SMOKE_COLS = 3;
+
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
   private cargo!: Phaser.GameObjects.Image;
@@ -116,12 +119,23 @@ export class GameScene extends Phaser.Scene {
 
   private createParallax() {
     PARALLAX.forEach((layer, i) => {
-      const ts = this.add.tileSprite(0, layer.y, GAME_WIDTH * 2, GAME_HEIGHT - layer.y, 'bg_parallax')
+      const isForeground = layer.key === 'bg_foreground';
+      const textureKey = isForeground ? 'fence_tile' : 'bg_parallax';
+      const ts = this.add.tileSprite(0, layer.y, GAME_WIDTH * 2, GAME_HEIGHT - layer.y, textureKey)
         .setOrigin(0, 0)
         .setScrollFactor(0)
         .setDepth(i)
-        .setAlpha(i === 0 ? 0.3 : 0.5 + i * 0.07)
-        .setCrop(0, layer.y, GAME_WIDTH * 2, GAME_HEIGHT - layer.y);
+        .setAlpha(isForeground ? 1 : i === 0 ? 0.3 : 0.5 + i * 0.07);
+
+      if (isForeground) {
+        const cropY = Math.floor(ts.height * 0.55);
+        const cropH = ts.height - cropY;
+        ts.setCrop(0, cropY, ts.width, cropH);
+        ts.setTileScale(0.35);
+      } else {
+        ts.setCrop(0, layer.y, GAME_WIDTH * 2, GAME_HEIGHT - layer.y);
+      }
+
       this.parallaxLayers.push(ts);
     });
   }
@@ -332,7 +346,14 @@ export class GameScene extends Phaser.Scene {
 
   private createTelegraph(x: number, y: number): Phaser.GameObjects.Container {
     const c = this.add.container(x, y).setDepth(100).setScrollFactor(0);
-    const arrow = this.add.triangle(0, 0, 0, -8, -6, 4, 6, 4, 0x00ff00).setStrokeStyle(2, 0xffffff);
+    const arrow = this.add.image(0, 0, 'telegraph_arrow')
+      .setOrigin(0.5, 0)
+      .setScale(0.22);
+    const cropW = Math.floor(arrow.width * 0.22);
+    const cropH = Math.floor(arrow.height * 0.55);
+    const cropX = Math.floor((arrow.width - cropW) / 2);
+    const cropY = Math.floor((arrow.height - cropH) / 2);
+    arrow.setCrop(cropX, cropY, cropW, cropH);
     c.add(arrow);
     this.tweens.add({
       targets: c,
@@ -342,6 +363,36 @@ export class GameScene extends Phaser.Scene {
       repeat: 3,
     });
     return c;
+  }
+
+  private playSmokeVfx(x: number, y: number) {
+    const smoke = this.add.image(x, y - 10, 'smoke_vfx')
+      .setDepth(85)
+      .setScale(0.12)
+      .setOrigin(0.5);
+    const frameW = smoke.width / SMOKE_COLS;
+    const frameH = smoke.height / 2;
+    let frame = 0;
+
+    const showFrame = () => {
+      const col = frame % SMOKE_COLS;
+      const row = Math.floor(frame / SMOKE_COLS);
+      smoke.setCrop(col * frameW, row * frameH, frameW, frameH);
+    };
+
+    showFrame();
+    this.time.addEvent({
+      delay: 70,
+      repeat: SMOKE_FRAMES - 1,
+      callback: () => {
+        frame += 1;
+        if (frame >= SMOKE_FRAMES) {
+          smoke.destroy();
+          return;
+        }
+        showFrame();
+      },
+    });
   }
 
   private setPigeonFrame(pigeon: PigeonObj, idx: number) {
@@ -435,6 +486,7 @@ export class GameScene extends Phaser.Scene {
 
   private takeDamage(pigeon: PigeonObj) {
     audioManager.playDamage();
+    this.playSmokeVfx(this.player.x, this.playerY - 30);
     this.pastries = Math.max(0, this.pastries - 1);
     this.updateCargoVisual();
     this.invincibleUntil = Date.now() + PHYSICS.iFrameDuration;
