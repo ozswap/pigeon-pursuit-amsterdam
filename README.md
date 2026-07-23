@@ -38,7 +38,8 @@ The file inlines JS, CSS, and sprite PNGs as base64. Google Fonts still load fro
 | `npm run dev` | Run the game client |
 | `npm run build` | Build the static site |
 | `npm run build:single` | Build one self-contained HTML file (`dist/canal-courier.html`) |
-| `npm run pack-atlas` | Slice sprite sheets into atlas frames |
+| `npm run extract-assets` | Extract transparent sprites and parallax strips from raw PNGs |
+| `npm run pack-atlas` | Alias for `extract-assets` |
 
 ## Controls
 

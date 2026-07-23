@@ -33,12 +33,7 @@ export const SCORING = {
 };
 
 export const PARALLAX = [
-  { key: 'bg_sky', speed: 0.05, y: 0 },
-  { key: 'bg_skyline', speed: 0.2, y: 20 },
-  { key: 'bg_houses', speed: 0.4, y: 40 },
-  { key: 'bg_bridge', speed: 0.6, y: 70 },
-  { key: 'bg_water', speed: 0.8, y: 100 },
-  { key: 'bg_road', speed: 1.0, y: 130 },
+  { key: 'bg_scene', speed: 0.5, y: 16 },
   { key: 'bg_foreground', speed: 1.5, y: 140 },
 ];
 
