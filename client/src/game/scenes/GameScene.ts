@@ -325,9 +325,9 @@ export class GameScene extends Phaser.Scene {
 
     this.distance += this.scrollSpeed * this.speedMult * dt;
     this.scrollSpeed = Math.min(800, PHYSICS.baseScrollSpeed + this.distance * 0.05);
-    this.level = Math.floor(this.distance / 3000) + 1;
+    this.level = Math.floor(this.distance / PROGRESSION.levelDistance) + 1;
 
-    if (this.distance > 15000) {
+    if (this.distance > PROGRESSION.levelCompleteDistance) {
       this.triggerLevelComplete();
       return;
     }
