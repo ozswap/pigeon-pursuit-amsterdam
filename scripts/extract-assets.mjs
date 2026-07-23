@@ -25,8 +25,8 @@ const SKY_COLOR_RGB = [105, 110, 146];
 
 /** Tight per-frame crops from cyclist sheet — avoids neighbor bleed & Gemini stray caps. */
 const CYCLIST_REGIONS = [
-  { name: 'spr_player_pedal_0', left: 12, top: 12, width: 318, height: 268 },
-  { name: 'spr_player_pedal_1', left: 358, top: 12, width: 296, height: 248 },
+  { name: 'spr_player_pedal_0', left: 12, top: 12, width: 318, height: 258 },
+  { name: 'spr_player_pedal_1', left: 358, top: 12, width: 296, height: 254 },
   { name: 'spr_player_idle', left: 698, top: 12, width: 314, height: 268 },
   { name: 'spr_player_pedal_2', left: 12, top: 300, width: 318, height: 262 },
   { name: 'spr_player_pedal_3', left: 358, top: 300, width: 296, height: 248 },
@@ -223,9 +223,16 @@ function cleanEdgeHalos(data, width, height, channels, bg, tolerance, passes = 1
 }
 
 /** Drop opaque pixels below the main sprite's feet (Gemini stray caps / debris). */
-function trimBelowMainBounds(data, width, height, channels, pad = 3) {
-  const bounds = getContentBounds(data, width, height);
-  const floorY = Math.min(height - 1, bounds.maxY + pad);
+function trimBelowMainBounds(data, width, height, channels, pad = 2) {
+  const yValues = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (data[(y * width + x) * channels + 3] > 20) yValues.push(y);
+    }
+  }
+  if (yValues.length === 0) return;
+  yValues.sort((a, b) => a - b);
+  const floorY = Math.min(height - 1, yValues[Math.floor(yValues.length * 0.985)] + pad);
   for (let y = floorY + 1; y < height; y++) {
     for (let x = 0; x < width; x++) {
       data[(y * width + x) * channels + 3] = 0;
@@ -374,6 +381,7 @@ function repairParallaxPixels(data, width, height, channels, { skyColor, skyFill
         data[i] = skyColor[0];
         data[i + 1] = skyColor[1];
         data[i + 2] = skyColor[2];
+        if (channels === 4) data[i + 3] = 255;
         continue;
       }
 
@@ -395,6 +403,10 @@ function repairParallaxPixels(data, width, height, channels, { skyColor, skyFill
       }
       if (channels === 4) data[i + 3] = 255;
     }
+  }
+
+  if (channels === 4) {
+    for (let i = 3; i < data.length; i += channels) data[i] = 255;
   }
 }
 
@@ -816,7 +828,6 @@ async function extractParallaxStrips(srcPath) {
   return names;
 }
 
-/** Tileable fence strip — horizontal rails from fence sprite sheet. */
 /** Tileable fence strip — keyed transparent PNG (not opaque beige band). */
 async function extractFenceTile(srcPath) {
   const outPath = join(OUT, 'spr_fence_tile.png');
