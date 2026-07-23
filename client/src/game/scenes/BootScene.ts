@@ -1,6 +1,13 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { GameScene } from './GameScene';
+import cyclistSheet from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c-ca4a9e5b-2a6c-49f3-b201-856e3f761e0b.png';
+import pigeonSheet from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__1_-d23e3af7-b5a2-4089-bf0c-f73a0c07def1.png';
+import pigeonSheet2 from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__2_-d63e7c63-ecb6-466b-863f-2b579849766d.png';
+import pastryStack from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__3_-e12ca839-68e9-47be-b729-a391c8194d63.png';
+import score100 from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__4_-61cacb89-86d2-40a0-a17e-f448def1053a.png';
+import pastrySingle from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__5_-b38897b1-da5a-4c56-bd10-dd038c73a4dd.png';
+import levelComplete from '../../../public/assets/raw/Gemini_Generated_Image_rl2cnerl2cnerl2c__6_-402e31e6-7859-41d6-8fdf-72eea1c74994.png';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -8,15 +15,14 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    const raw = `${import.meta.env.BASE_URL}assets/raw`;
-    this.load.image('cyclist_sheet', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c-ca4a9e5b-2a6c-49f3-b201-856e3f761e0b.png`);
-    this.load.image('pigeon_sheet', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__1_-d23e3af7-b5a2-4089-bf0c-f73a0c07def1.png`);
-    this.load.image('pigeon_sheet2', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__2_-d63e7c63-ecb6-466b-863f-2b579849766d.png`);
-    this.load.image('pastry_stack', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__3_-e12ca839-68e9-47be-b729-a391c8194d63.png`);
-    this.load.image('score_100', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__4_-61cacb89-86d2-40a0-a17e-f448def1053a.png`);
-    this.load.image('pastry_single', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__5_-b38897b1-da5a-4c56-bd10-dd038c73a4dd.png`);
-    this.load.image('level_complete', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__6_-402e31e6-7859-41d6-8fdf-72eea1c74994.png`);
-    this.load.image('bg_parallax', `${raw}/Gemini_Generated_Image_rl2cnerl2cnerl2c__6_-402e31e6-7859-41d6-8fdf-72eea1c74994.png`);
+    this.load.image('cyclist_sheet', cyclistSheet);
+    this.load.image('pigeon_sheet', pigeonSheet);
+    this.load.image('pigeon_sheet2', pigeonSheet2);
+    this.load.image('pastry_stack', pastryStack);
+    this.load.image('score_100', score100);
+    this.load.image('pastry_single', pastrySingle);
+    this.load.image('level_complete', levelComplete);
+    this.load.image('bg_parallax', levelComplete);
   }
 
   create() {

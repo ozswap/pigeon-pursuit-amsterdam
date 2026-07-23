@@ -16,12 +16,28 @@ npm install
 npm run dev          # client at http://localhost:5173
 ```
 
+### Single-file HTML
+
+For a portable, self-contained build (e.g. open locally or upload anywhere):
+
+```bash
+npm run build:single
+```
+
+Output:
+
+- `client/dist-single/index.html` — Vite single-file build
+- `dist/canal-courier.html` — copy at repo root for easy sharing
+
+The file inlines JS, CSS, and sprite PNGs as base64. Google Fonts still load from the network unless you are offline.
+
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Run the game client |
 | `npm run build` | Build the static site |
+| `npm run build:single` | Build one self-contained HTML file (`dist/canal-courier.html`) |
 | `npm run pack-atlas` | Slice sprite sheets into atlas frames |
 
 ## Controls

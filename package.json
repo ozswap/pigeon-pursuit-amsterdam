@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npm run dev --workspace=client",
     "build": "npm run build --workspace=client",
+    "build:single": "npm run build:single --workspace=client",
     "pack-atlas": "node scripts/pack-atlas.mjs"
   },
   "devDependencies": {
