@@ -47,6 +47,10 @@ const SMOKE_FRAMES = [
   'spr_smoke_2',
 ] as const;
 
+const FLOCK_OFFSET = 14;
+const SWOOP_COLLISION_START = 0.85;
+const TELEGRAPH_LANDING_OFFSET = 24;
+
 /** Scale sprites to consistent on-screen sizes (source PNGs vary widely). */
 const SCALE = {
   player: 0.34,
@@ -83,8 +87,13 @@ export class GameScene extends Phaser.Scene {
   private parallaxLayers: Phaser.GameObjects.TileSprite[] = [];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
-  private pointerDownRight = false;
-  private pointerDownLeft = false;
+  private activePointersLeft = new Set<number>();
+  private activePointersRight = new Set<number>();
+  private pointerStartY = new Map<number, number>();
+  private swipeDuckPointers = new Set<number>();
+  private pointerDownAt = new Map<number, number>();
+  private readonly holdSpeedUpMs = 500;
+  private readonly swipeDuckThreshold = 28;
   private dustTimer = 0;
   private scoreText!: Phaser.GameObjects.Text;
   private pastryText!: Phaser.GameObjects.Text;
@@ -160,6 +169,11 @@ export class GameScene extends Phaser.Scene {
     this.dustTimer = 0;
     this.pigeonPool = [];
     this.parallaxLayers = [];
+    this.activePointersLeft.clear();
+    this.activePointersRight.clear();
+    this.pointerStartY.clear();
+    this.swipeDuckPointers.clear();
+    this.pointerDownAt.clear();
   }
 
   private createBackground() {
@@ -254,14 +268,29 @@ export class GameScene extends Phaser.Scene {
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
+    const releasePointer = (p: Phaser.Input.Pointer) => {
+      this.activePointersLeft.delete(p.id);
+      this.activePointersRight.delete(p.id);
+      this.swipeDuckPointers.delete(p.id);
+      this.pointerStartY.delete(p.id);
+      this.pointerDownAt.delete(p.id);
+    };
+
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (p.x > GAME_WIDTH / 2) this.pointerDownRight = true;
-      else this.pointerDownLeft = true;
+      this.pointerStartY.set(p.id, p.y);
+      this.pointerDownAt.set(p.id, Date.now());
+      if (p.x > GAME_WIDTH / 2) this.activePointersRight.add(p.id);
+      else this.activePointersLeft.add(p.id);
     });
-    this.input.on('pointerup', () => {
-      this.pointerDownRight = false;
-      this.pointerDownLeft = false;
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      const startY = this.pointerStartY.get(p.id);
+      if (startY === undefined || p.x <= GAME_WIDTH / 2) return;
+      if (p.y - startY >= this.swipeDuckThreshold) {
+        this.swipeDuckPointers.add(p.id);
+      }
     });
+    this.input.on('pointerup', releasePointer);
+    this.input.on('pointerupoutside', releasePointer);
   }
 
   update(_time: number, deltaMs: number) {
@@ -289,10 +318,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleInput() {
-    const jump = this.spaceKey?.isDown || this.cursors?.up?.isDown || this.pointerDownRight;
-    const duck = this.cursors?.down?.isDown;
-    const speedUp = this.cursors?.right?.isDown;
-    const brake = this.cursors?.left?.isDown || this.pointerDownLeft;
+    const pointerJump = this.activePointersRight.size > 0;
+    const pointerBrake = this.activePointersLeft.size > 0;
+    const pointerDuck = this.swipeDuckPointers.size > 0;
+    const pointerHoldSpeedUp = [...this.activePointersRight].some((id) => {
+      const downAt = this.pointerDownAt.get(id);
+      return downAt !== undefined && Date.now() - downAt >= this.holdSpeedUpMs;
+    });
+
+    const jump = this.spaceKey?.isDown || this.cursors?.up?.isDown || pointerJump;
+    const duck = this.cursors?.down?.isDown || pointerDuck;
+    const speedUp = this.cursors?.right?.isDown || pointerHoldSpeedUp;
+    const brake = this.cursors?.left?.isDown || pointerBrake;
 
     this.speedMult = speedUp ? PHYSICS.speedUpMultiplier : brake ? PHYSICS.brakeMultiplier : 1;
 
@@ -458,18 +495,38 @@ export class GameScene extends Phaser.Scene {
 
     pigeon.variant = variant;
     pigeon.state = 'targeting';
-    pigeon.timer = 0;
+    pigeon.timer = variant === 'flock' ? -index * 0.12 : 0;
     pigeon.startY = -20 - index * 8;
-    pigeon.targetX = this.player.x + (variant === 'divebomber' ? 30 : 0);
+    pigeon.targetX = this.player.x;
     pigeon.frameIdx = 0;
     pigeon.flockOffset =
-      variant === 'flock' ? Math.sin((index / flockSize) * Math.PI * 2) * 35 : 0;
+      variant === 'flock' ? Math.sin((index / flockSize) * Math.PI * 2) * FLOCK_OFFSET : 0;
 
     pigeon.sprite.setVisible(true);
     pigeon.sprite.setPosition(GAME_WIDTH + 20 + index * 15, pigeon.startY);
     pigeon.sprite.setScale(SCALE.pigeon);
     pigeon.sprite.setTexture(PIGEON_FRAMES[0]);
-    pigeon.telegraph = this.createTelegraph(pigeon.sprite.x, pigeon.startY + 10);
+    pigeon.telegraph = this.createTelegraph(this.getLandingX(pigeon), this.playerY - TELEGRAPH_LANDING_OFFSET);
+  }
+
+  private getLandingX(pigeon: PigeonObj): number {
+    return pigeon.targetX + (pigeon.flockOffset ?? 0);
+  }
+
+  private updateTelegraph(pigeon: PigeonObj) {
+    if (!pigeon.telegraph) return;
+    const landingX = this.getLandingX(pigeon);
+    const landingY = this.playerY - TELEGRAPH_LANDING_OFFSET;
+    pigeon.telegraph.setPosition(landingX, landingY);
+    const arrow = pigeon.telegraph.list[0] as Phaser.GameObjects.Image | undefined;
+    if (arrow) {
+      arrow.setRotation(Math.PI);
+    }
+  }
+
+  private destroyTelegraph(pigeon: PigeonObj) {
+    pigeon.telegraph?.destroy();
+    pigeon.telegraph = undefined;
   }
 
   private createTelegraph(x: number, y: number): Phaser.GameObjects.Container {
@@ -477,7 +534,8 @@ export class GameScene extends Phaser.Scene {
     const arrow = this.add
       .image(0, 0, 'spr_telegraph_arrow')
       .setOrigin(0.5, 0)
-      .setScale(SCALE.arrow);
+      .setScale(SCALE.arrow)
+      .setRotation(Math.PI);
     c.add(arrow);
     this.tweens.add({
       targets: arrow,
@@ -523,38 +581,42 @@ export class GameScene extends Phaser.Scene {
 
       switch (pigeon.state) {
         case 'targeting':
+          pigeon.targetX = this.player.x;
           pigeon.sprite.x = GAME_WIDTH - 30;
           pigeon.sprite.y = 15 + Math.sin(pigeon.timer * 4) * 3;
-          if (pigeon.telegraph) {
-            pigeon.telegraph.setPosition(pigeon.sprite.x, pigeon.sprite.y + 14);
-          }
+          this.updateTelegraph(pigeon);
           if (pigeon.timer >= PHYSICS.telegraphDuration / 1000) {
             pigeon.state = 'swoop';
             pigeon.timer = 0;
-            pigeon.telegraph?.destroy();
-            pigeon.telegraph = undefined;
+            pigeon.targetX = this.player.x;
           }
           break;
 
         case 'swoop': {
           const progress = Math.min(1, pigeon.timer / 0.8);
-          const targetX = pigeon.targetX + (pigeon.flockOffset ?? 0);
-          const curve = progress * progress;
-          pigeon.sprite.x = Phaser.Math.Linear(GAME_WIDTH - 30, targetX, progress);
-          const swoopDepth = pigeon.variant === 'divebomber' ? 1.3 : 1;
+          const landingX = this.getLandingX(pigeon);
+          const curve = Math.min(1, progress * progress);
+          pigeon.sprite.x = Phaser.Math.Linear(GAME_WIDTH - 30, landingX, progress);
           pigeon.sprite.y = Phaser.Math.Linear(
             pigeon.startY,
             this.playerY - 20,
-            curve * swoopDepth,
+            curve,
           );
+          this.updateTelegraph(pigeon);
 
-          if (progress >= 1) {
-            if (this.checkCollision(pigeon)) {
+          const overlapping = this.pigeonOverlapsPlayer(pigeon);
+          const invincible = Date.now() < this.invincibleUntil;
+          const swoopResolved =
+            (progress >= SWOOP_COLLISION_START && overlapping && !invincible) || progress >= 1;
+
+          if (swoopResolved) {
+            if (overlapping && !invincible) {
               this.takeDamage(pigeon);
-            } else {
+            } else if (!overlapping && !invincible) {
               this.awardDodge(pigeon);
               audioManager.playSwoop();
             }
+            this.destroyTelegraph(pigeon);
             pigeon.state = 'recover';
             pigeon.timer = 0;
           }
@@ -566,7 +628,7 @@ export class GameScene extends Phaser.Scene {
           pigeon.sprite.x -= 40 * dt;
           if (pigeon.sprite.y < -40) {
             pigeon.sprite.setVisible(false);
-            pigeon.telegraph?.destroy();
+            this.destroyTelegraph(pigeon);
             pigeon.state = 'targeting';
           }
           break;
@@ -595,8 +657,7 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  private checkCollision(pigeon: PigeonObj): boolean {
-    if (Date.now() < this.invincibleUntil) return false;
+  private pigeonOverlapsPlayer(pigeon: PigeonObj): boolean {
     return Phaser.Geom.Rectangle.Overlaps(this.getPlayerHitbox(), this.getPigeonHitbox(pigeon));
   }
 
