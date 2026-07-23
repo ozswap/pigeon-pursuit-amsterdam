@@ -46,7 +46,13 @@ const SMOKE_FRAMES = [
   'spr_smoke_0',
   'spr_smoke_1',
   'spr_smoke_2',
+  'spr_smoke_3',
+  'spr_smoke_4',
+  'spr_smoke_5',
 ] as const;
+
+const DIVE_FRAME = 'spr_pigeon_3';
+const GLIDE_FRAME = 'spr_pigeon_2';
 
 const FLOCK_OFFSET = 14;
 const SWOOP_COLLISION_START = 0.85;
@@ -57,9 +63,11 @@ const SCALE = {
   player: 0.34,
   playerDuck: 0.34,
   cargo: 0.1,
-  pigeon: 0.24,
-  arrow: 0.13,
-  smoke: 0.18,
+  pigeon: 0.21,
+  pigeonDive: 0.22,
+  pigeonFlock: 0.17,
+  arrow: 0.28,
+  smoke: 0.42,
   scorePopup: 0.22,
   pastryDrop: 0.05,
 };
@@ -86,6 +94,8 @@ export class GameScene extends Phaser.Scene {
   private displayedScore = -1;
   private displayedPastries = -1;
   private currentPlayerTexture = '';
+  private playerRefHeight = 0;
+  private pigeonRefHeight = 0;
   private readonly playerHitbox = new Phaser.Geom.Rectangle();
   private readonly pigeonHitbox = new Phaser.Geom.Rectangle();
   private telegraphPool: Phaser.GameObjects.Container[] = [];
@@ -121,6 +131,11 @@ export class GameScene extends Phaser.Scene {
     this.resetState();
     this.createBackground();
     this.createPlayer();
+    this.playerRefHeight = this.getMaxTextureHeight([
+      ...PLAYER_PEDAL_FRAMES,
+      'spr_player_jump',
+    ]);
+    this.pigeonRefHeight = this.getMaxTextureHeight([...PIGEON_FRAMES]);
     this.createPigeonPool();
     this.createTelegraphPool();
     this.setupInput();
@@ -253,6 +268,30 @@ export class GameScene extends Phaser.Scene {
     this.updateCargoVisual();
   }
 
+  private getMaxTextureHeight(keys: readonly string[]): number {
+    return Math.max(
+      ...keys.map((key) => {
+        const src = this.textures.get(key).getSourceImage();
+        return (src as HTMLImageElement).height ?? src.height;
+      }),
+    );
+  }
+
+  /** Normalize display height so frame swaps do not pop (bottom-origin sprites). */
+  private applyPlayerScale() {
+    const h = this.player.frame.height;
+    const norm = this.playerRefHeight / h;
+    const baseX = this.isDucking ? SCALE.playerDuck : SCALE.player;
+    const baseY = this.isDucking ? SCALE.playerDuck * 0.75 : SCALE.player;
+    this.player.setScale(baseX * norm, baseY * norm);
+  }
+
+  private applyPigeonScale(sprite: Phaser.GameObjects.Image, variant: PigeonVariant) {
+    const h = sprite.frame.height;
+    const norm = this.pigeonRefHeight / h;
+    sprite.setScale(this.getPigeonScale(variant) * norm);
+  }
+
   private setCyclistFrame(idx: number) {
     const key = this.isJumping
       ? 'spr_player_jump'
@@ -260,6 +299,7 @@ export class GameScene extends Phaser.Scene {
     if (key === this.currentPlayerTexture) return;
     this.currentPlayerTexture = key;
     this.player.setTexture(key);
+    this.applyPlayerScale();
   }
 
   private createPigeonPool() {
@@ -398,12 +438,12 @@ export class GameScene extends Phaser.Scene {
     } else if (duck) {
       this.isDucking = true;
       if (!this.tweens.isTweening(this.player)) {
-        this.player.setScale(SCALE.playerDuck, SCALE.playerDuck * 0.75);
+        this.applyPlayerScale();
       }
     } else {
       this.isDucking = false;
       if (!this.tweens.isTweening(this.player)) {
-        this.player.setScale(SCALE.player);
+        this.applyPlayerScale();
       }
     }
   }
@@ -561,6 +601,24 @@ export class GameScene extends Phaser.Scene {
     return this.pigeonPool.find((p) => !p.sprite.visible) ?? null;
   }
 
+  private getPigeonScale(variant: PigeonVariant): number {
+    switch (variant) {
+      case 'divebomber':
+        return SCALE.pigeonDive;
+      case 'flock':
+        return SCALE.pigeonFlock;
+      default:
+        return SCALE.pigeon;
+    }
+  }
+
+  private getPigeonFrame(pigeon: PigeonObj): string {
+    if (pigeon.variant === 'divebomber') {
+      return pigeon.state === 'swoop' ? DIVE_FRAME : GLIDE_FRAME;
+    }
+    return PIGEON_FRAMES[pigeon.frameIdx];
+  }
+
   private spawnPigeon() {
     let variant: PigeonVariant = 'standard';
     if (this.level >= PROGRESSION.flockUnlockLevel && Math.random() < 0.18) variant = 'flock';
@@ -588,8 +646,8 @@ export class GameScene extends Phaser.Scene {
 
     pigeon.sprite.setVisible(true);
     pigeon.sprite.setPosition(GAME_WIDTH + 20 + index * 15, pigeon.startY);
-    pigeon.sprite.setScale(SCALE.pigeon);
-    pigeon.sprite.setTexture(PIGEON_FRAMES[0]);
+    pigeon.sprite.setTexture(this.getPigeonFrame(pigeon));
+    this.applyPigeonScale(pigeon.sprite, variant);
     pigeon.telegraph = this.acquireTelegraph(
       this.getLandingX(pigeon),
       this.playerY - TELEGRAPH_LANDING_OFFSET,
@@ -630,13 +688,14 @@ export class GameScene extends Phaser.Scene {
       .image(0, 0, 'spr_telegraph_arrow')
       .setOrigin(0.5, 0)
       .setScale(SCALE.arrow)
+      .setTint(0x66ff88)
       .setRotation(Math.PI);
     c.add(arrow);
     this.tweens.add({
       targets: arrow,
-      scaleY: SCALE.arrow * 1.35,
-      scaleX: SCALE.arrow * 1.1,
-      alpha: { from: 1, to: 0.25 },
+      scaleY: SCALE.arrow * 1.45,
+      scaleX: SCALE.arrow * 1.15,
+      alpha: { from: 1, to: 0.4 },
       duration: 400,
       yoyo: true,
       repeat: -1,
@@ -681,7 +740,11 @@ export class GameScene extends Phaser.Scene {
       const frameIdx = Math.floor(pigeon.timer * 8) % PIGEON_FRAMES.length;
       if (frameIdx !== pigeon.frameIdx) {
         pigeon.frameIdx = frameIdx;
-        pigeon.sprite.setTexture(PIGEON_FRAMES[frameIdx]);
+      }
+      const nextFrame = this.getPigeonFrame(pigeon);
+      if (pigeon.sprite.texture.key !== nextFrame) {
+        pigeon.sprite.setTexture(nextFrame);
+        this.applyPigeonScale(pigeon.sprite, pigeon.variant);
       }
 
       switch (pigeon.state) {

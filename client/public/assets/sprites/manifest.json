@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-23T13:26:15.065Z",
+  "generated": "2026-07-23T16:36:37.613Z",
   "player": [
     "spr_player_pedal_0",
     "spr_player_pedal_1",
@@ -25,15 +25,16 @@
   ],
   "singles": [
     "spr_pastry_stack",
-    "spr_score_100",
     "spr_pastry_single",
+    "spr_score_100",
     "spr_telegraph_arrow",
     "spr_level_complete",
-    "spr_fence_tile"
+    "spr_brick_ground"
   ],
   "parallax": [
     "bg_buildings",
     "bg_canal",
-    "bg_path"
+    "bg_path",
+    "spr_fence_tile"
   ]
 }

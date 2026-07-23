@@ -50,8 +50,8 @@ export const SCORING = {
 /** Parallax layers — sky is a solid color in GameScene, not an image. */
 export const PARALLAX = [
   { key: 'bg_buildings', speed: 0.15, y: 16, height: 42 },
-  { key: 'bg_canal', speed: 0.32, y: 57, height: 34 },
-  { key: 'bg_path', speed: 0.65, y: 90, height: 30 },
+  { key: 'bg_canal', speed: 0.32, y: 58, height: 34 },
+  { key: 'bg_path', speed: 0.65, y: 92, height: 30 },
   { key: 'spr_fence_tile', speed: 1.0, y: 122, height: 38, tileScale: 1 },
 ] as const;
 

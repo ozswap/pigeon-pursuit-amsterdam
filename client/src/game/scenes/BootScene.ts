@@ -22,12 +22,15 @@ const IMAGE_ASSETS: { key: string; path: string }[] = [
   'spr_pastry_stack',
   'spr_pastry_single',
   'spr_score_100',
-  'spr_level_complete',
+  'spr_brick_ground',
   'spr_telegraph_arrow',
   // VFX
   'spr_smoke_0',
   'spr_smoke_1',
   'spr_smoke_2',
+  'spr_smoke_3',
+  'spr_smoke_4',
+  'spr_smoke_5',
   // Parallax
   'bg_buildings',
   'bg_canal',
