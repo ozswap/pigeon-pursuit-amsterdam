@@ -25,9 +25,11 @@ function useCoarsePointer() {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu');
-  const [crtEnabled, setCrtEnabled] = useState(
-    () => localStorage.getItem(STORAGE_KEYS.crtEnabled) !== 'false'
-  );
+  const [crtEnabled, setCrtEnabled] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEYS.crtEnabled);
+    if (stored !== null) return stored !== 'false';
+    return !window.matchMedia('(pointer: coarse)').matches;
+  });
   const [soundEnabled, setSoundEnabled] = useState(
     () => localStorage.getItem(STORAGE_KEYS.soundEnabled) !== 'false'
   );

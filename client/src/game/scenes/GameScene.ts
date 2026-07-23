@@ -80,6 +80,12 @@ export class GameScene extends Phaser.Scene {
   private score = 0;
   private level = 1;
   private invincibleUntil = 0;
+  private displayedScore = -1;
+  private displayedPastries = -1;
+  private currentPlayerTexture = '';
+  private readonly playerHitbox = new Phaser.Geom.Rectangle();
+  private readonly pigeonHitbox = new Phaser.Geom.Rectangle();
+  private telegraphPool: Phaser.GameObjects.Container[] = [];
   private gameOver = false;
   private levelComplete = false;
   private pigeonPool: PigeonObj[] = [];
@@ -112,6 +118,7 @@ export class GameScene extends Phaser.Scene {
     this.createBackground();
     this.createPlayer();
     this.createPigeonPool();
+    this.createTelegraphPool();
     this.setupInput();
 
     this.scoreText = this.add
@@ -163,6 +170,10 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.level = 1;
     this.invincibleUntil = 0;
+    this.displayedScore = -1;
+    this.displayedPastries = -1;
+    this.currentPlayerTexture = '';
+    this.telegraphPool = [];
     this.gameOver = false;
     this.levelComplete = false;
     this.spawnTimer = SPAWN.initialDelay;
@@ -240,11 +251,13 @@ export class GameScene extends Phaser.Scene {
     const key = this.isJumping
       ? 'spr_player_jump'
       : PLAYER_PEDAL_FRAMES[idx % PLAYER_PEDAL_FRAMES.length];
+    if (key === this.currentPlayerTexture) return;
+    this.currentPlayerTexture = key;
     this.player.setTexture(key);
   }
 
   private createPigeonPool() {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const sprite = this.add
         .image(-100, -100, PIGEON_FRAMES[0])
         .setDepth(60)
@@ -313,8 +326,18 @@ export class GameScene extends Phaser.Scene {
     this.updateSpawner(dt);
     this.updatePedalAnimation(dt);
 
-    this.scoreText.setText(String(this.score));
-    this.pastryText.setText(`🥯 ${this.pastries}`);
+    this.refreshHud();
+  }
+
+  private refreshHud() {
+    if (this.score !== this.displayedScore) {
+      this.displayedScore = this.score;
+      this.scoreText.setText(String(this.score));
+    }
+    if (this.pastries !== this.displayedPastries) {
+      this.displayedPastries = this.pastries;
+      this.pastryText.setText(`🥯 ${this.pastries}`);
+    }
   }
 
   private handleInput() {
@@ -425,8 +448,9 @@ export class GameScene extends Phaser.Scene {
     );
     this.cargo.setScale(SCALE.cargo * (this.pastries / PHYSICS.startingPastries + 0.4));
 
-    if (Date.now() < this.invincibleUntil) {
-      this.player.setAlpha(Math.sin(Date.now() / 80) > 0 ? 0.35 : 1);
+    const now = this.time.now;
+    if (now < this.invincibleUntil) {
+      this.player.setAlpha(Math.sin(now / 80) > 0 ? 0.35 : 1);
     } else {
       this.player.setAlpha(1);
     }
@@ -447,7 +471,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.isDucking && this.speedMult >= 1) {
       this.dustTimer += dt;
-      const dustRate = 0.12 / this.speedMult;
+      const dustRate = (0.12 / this.speedMult) * (this.speedMult > 1.2 ? 1.3 : 1);
       if (this.dustTimer >= dustRate) {
         this.dustTimer = 0;
         this.spawnPedalDust();
@@ -506,7 +530,10 @@ export class GameScene extends Phaser.Scene {
     pigeon.sprite.setPosition(GAME_WIDTH + 20 + index * 15, pigeon.startY);
     pigeon.sprite.setScale(SCALE.pigeon);
     pigeon.sprite.setTexture(PIGEON_FRAMES[0]);
-    pigeon.telegraph = this.createTelegraph(this.getLandingX(pigeon), this.playerY - TELEGRAPH_LANDING_OFFSET);
+    pigeon.telegraph = this.acquireTelegraph(
+      this.getLandingX(pigeon),
+      this.playerY - TELEGRAPH_LANDING_OFFSET,
+    );
   }
 
   private getLandingX(pigeon: PigeonObj): number {
@@ -524,13 +551,21 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private destroyTelegraph(pigeon: PigeonObj) {
-    pigeon.telegraph?.destroy();
-    pigeon.telegraph = undefined;
+  private releaseTelegraph(pigeon: PigeonObj) {
+    if (pigeon.telegraph) {
+      pigeon.telegraph.setVisible(false);
+      pigeon.telegraph = undefined;
+    }
   }
 
-  private createTelegraph(x: number, y: number): Phaser.GameObjects.Container {
-    const c = this.add.container(x, y).setDepth(100);
+  private createTelegraphPool() {
+    for (let i = 0; i < 5; i++) {
+      this.telegraphPool.push(this.buildTelegraphContainer());
+    }
+  }
+
+  private buildTelegraphContainer(): Phaser.GameObjects.Container {
+    const c = this.add.container(-100, -100).setDepth(100).setVisible(false);
     const arrow = this.add
       .image(0, 0, 'spr_telegraph_arrow')
       .setOrigin(0.5, 0)
@@ -548,6 +583,13 @@ export class GameScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
     return c;
+  }
+
+  private acquireTelegraph(x: number, y: number): Phaser.GameObjects.Container {
+    const c =
+      this.telegraphPool.find((t) => !t.visible) ?? this.buildTelegraphContainer();
+    if (!this.telegraphPool.includes(c)) this.telegraphPool.push(c);
+    return c.setPosition(x, y).setVisible(true);
   }
 
   private playSmokeVfx(x: number, y: number) {
@@ -576,8 +618,11 @@ export class GameScene extends Phaser.Scene {
     for (const pigeon of this.pigeonPool) {
       if (!pigeon.sprite.visible) continue;
       pigeon.timer += dt;
-      pigeon.frameIdx = Math.floor(pigeon.timer * 8) % PIGEON_FRAMES.length;
-      pigeon.sprite.setTexture(PIGEON_FRAMES[pigeon.frameIdx]);
+      const frameIdx = Math.floor(pigeon.timer * 8) % PIGEON_FRAMES.length;
+      if (frameIdx !== pigeon.frameIdx) {
+        pigeon.frameIdx = frameIdx;
+        pigeon.sprite.setTexture(PIGEON_FRAMES[frameIdx]);
+      }
 
       switch (pigeon.state) {
         case 'targeting':
@@ -606,7 +651,7 @@ export class GameScene extends Phaser.Scene {
           this.updateTelegraph(pigeon);
 
           const overlapping = this.pigeonOverlapsPlayer(pigeon);
-          const invincible = Date.now() < this.invincibleUntil;
+          const invincible = this.time.now < this.invincibleUntil;
           const swoopResolved =
             (progress >= SWOOP_COLLISION_START && overlapping && !invincible) || progress >= 1;
 
@@ -616,7 +661,7 @@ export class GameScene extends Phaser.Scene {
             } else if (!overlapping && !invincible) {
               this.awardDodge(pigeon);
             }
-            this.destroyTelegraph(pigeon);
+            this.releaseTelegraph(pigeon);
             pigeon.state = 'recover';
             pigeon.timer = 0;
           }
@@ -628,7 +673,7 @@ export class GameScene extends Phaser.Scene {
           pigeon.sprite.x -= 40 * dt;
           if (pigeon.sprite.y < -40) {
             pigeon.sprite.setVisible(false);
-            this.destroyTelegraph(pigeon);
+            this.releaseTelegraph(pigeon);
             pigeon.state = 'targeting';
           }
           break;
@@ -636,29 +681,34 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private getPlayerHitbox(): Phaser.Geom.Rectangle {
+  private updatePlayerHitbox(): Phaser.Geom.Rectangle {
     const h = this.isDucking
       ? HITBOX.playerCore.h * (1 - PHYSICS.duckHitboxReduction)
       : HITBOX.playerCore.h;
-    return new Phaser.Geom.Rectangle(
+    this.playerHitbox.setTo(
       this.player.x - HITBOX.playerCore.w / 2,
       this.playerY - h,
       HITBOX.playerCore.w,
       h,
     );
+    return this.playerHitbox;
   }
 
-  private getPigeonHitbox(pigeon: PigeonObj): Phaser.Geom.Rectangle {
-    return new Phaser.Geom.Rectangle(
+  private updatePigeonHitbox(pigeon: PigeonObj): Phaser.Geom.Rectangle {
+    this.pigeonHitbox.setTo(
       pigeon.sprite.x - HITBOX.pigeonBeak.w / 2,
       pigeon.sprite.y - HITBOX.pigeonBeak.h / 2,
       HITBOX.pigeonBeak.w,
       HITBOX.pigeonBeak.h,
     );
+    return this.pigeonHitbox;
   }
 
   private pigeonOverlapsPlayer(pigeon: PigeonObj): boolean {
-    return Phaser.Geom.Rectangle.Overlaps(this.getPlayerHitbox(), this.getPigeonHitbox(pigeon));
+    return Phaser.Geom.Rectangle.Overlaps(
+      this.updatePlayerHitbox(),
+      this.updatePigeonHitbox(pigeon),
+    );
   }
 
   private takeDamage(pigeon: PigeonObj) {
@@ -666,7 +716,7 @@ export class GameScene extends Phaser.Scene {
     this.playSmokeVfx(this.player.x, this.playerY - 30);
     this.pastries = Math.max(0, this.pastries - 1);
     this.updateCargoVisual();
-    this.invincibleUntil = Date.now() + PHYSICS.iFrameDuration;
+    this.invincibleUntil = this.time.now + PHYSICS.iFrameDuration;
     this.onGameEvent?.('player_damage_taken', {
       x: this.player.x,
       y: this.playerY,

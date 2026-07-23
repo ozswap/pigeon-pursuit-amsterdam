@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { GameScene } from './GameScene';
 
-const SPRITES = '/assets/sprites';
+const SPRITES = `${import.meta.env.BASE_URL}assets/sprites`.replace(/\/$/, '');
 
 /** Every texture the game loads — individual PNGs only, no runtime cropping. */
 const IMAGE_ASSETS: { key: string; path: string }[] = [
@@ -11,7 +11,6 @@ const IMAGE_ASSETS: { key: string; path: string }[] = [
   'spr_player_pedal_1',
   'spr_player_pedal_2',
   'spr_player_pedal_3',
-  'spr_player_idle',
   'spr_player_jump',
   // Pigeons
   'spr_pigeon_0',
@@ -29,9 +28,6 @@ const IMAGE_ASSETS: { key: string; path: string }[] = [
   'spr_smoke_0',
   'spr_smoke_1',
   'spr_smoke_2',
-  'spr_smoke_3',
-  'spr_smoke_4',
-  'spr_smoke_5',
   // Parallax
   'bg_buildings',
   'bg_canal',
