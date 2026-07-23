@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import Phaser from 'phaser';
 import { createGame } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
-import { setCRTPipelineEnabled, registerCRTPipeline } from './pipelines/CRTPipeline';
+import { setCRTPipelineEnabled } from './pipelines/CRTPipeline';
 import { STORAGE_KEYS } from './config';
 
 export interface GameCanvasProps {
@@ -29,12 +29,7 @@ export function GameCanvas({ active, crtEnabled, onGameEvent, onReady }: GameCan
 
     game.events.once('ready', () => {
       setCRTPipelineEnabled(game, crtEnabled);
-      const boot = game.scene.getScene('Boot');
-      boot.events.once('assets-ready', () => {
-        registerCRTPipeline(game);
-        setCRTPipelineEnabled(game, crtEnabled);
-        onReady(game);
-      });
+      onReady(game);
     });
 
     return () => {

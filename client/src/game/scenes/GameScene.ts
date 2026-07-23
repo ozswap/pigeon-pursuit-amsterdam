@@ -10,6 +10,7 @@ import {
   SPAWN,
 } from '../config';
 import { audioManager } from '../audio';
+import { isCRTPipelineEnabled, registerCRTPipeline } from '../pipelines/CRTPipeline';
 
 type PigeonState = 'targeting' | 'swoop' | 'recover';
 type PigeonVariant = 'standard' | 'divebomber' | 'flock';
@@ -59,9 +60,8 @@ const SCALE = {
   pigeon: 0.24,
   arrow: 0.13,
   smoke: 0.18,
-  scorePopup: 0.06,
+  scorePopup: 0.22,
   pastryDrop: 0.05,
-  levelBanner: 1,
 };
 
 export class GameScene extends Phaser.Scene {
@@ -72,6 +72,9 @@ export class GameScene extends Phaser.Scene {
   private isJumping = false;
   private isDucking = false;
   private jumpVy = 0;
+  private jumpBuffered = false;
+  private jumpBufferUntil = 0;
+  private coyoteMsLeft = 0;
   private playerY = PHYSICS.groundY;
   private speedMult = 1;
   private distance = 0;
@@ -91,6 +94,7 @@ export class GameScene extends Phaser.Scene {
   private pigeonPool: PigeonObj[] = [];
   private spawnTimer = 0;
   private parallaxLayers: Phaser.GameObjects.TileSprite[] = [];
+  private groundBrick!: Phaser.GameObjects.TileSprite;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private activePointersLeft = new Set<number>();
@@ -154,6 +158,10 @@ export class GameScene extends Phaser.Scene {
     });
     audioManager.startBGM();
     this.onGameEvent?.('level_start', { level_id: this.level });
+
+    if (isCRTPipelineEnabled()) {
+      registerCRTPipeline(this.cameras.main, this.game);
+    }
   }
 
   private resetState() {
@@ -162,6 +170,9 @@ export class GameScene extends Phaser.Scene {
     this.isJumping = false;
     this.isDucking = false;
     this.jumpVy = 0;
+    this.jumpBuffered = false;
+    this.jumpBufferUntil = 0;
+    this.coyoteMsLeft = 0;
     this.playerY = PHYSICS.groundY;
     this.speedMult = 1;
     this.distance = 0;
@@ -194,11 +205,11 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(-10);
 
-    // Ground fill below path
+    // Ground fill below fence — depth 2 keeps it behind fence (depth 3)
     this.add
       .rectangle(GAME_WIDTH / 2, 165, GAME_WIDTH, 30, 0x4a4038)
       .setScrollFactor(0)
-      .setDepth(5);
+      .setDepth(2);
 
     this.createGroundDetail();
 
@@ -217,18 +228,13 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  /** Subtle paving/brick lines along the ride surface. */
+  /** Scrolling sidewalk brick strip along the ride surface. */
   private createGroundDetail() {
-    const g = this.add.graphics().setDepth(6).setScrollFactor(0);
-    const y = PHYSICS.groundY - 1;
-    g.lineStyle(1, 0x8b7355, 0.55);
-    g.lineBetween(0, y, GAME_WIDTH, y);
-
-    g.fillStyle(0x6b5a48, 0.35);
-    for (let x = 0; x < GAME_WIDTH; x += 12) {
-      const h = x % 24 === 0 ? 3 : 2;
-      g.fillRect(x, y + 2, 10, h);
-    }
+    this.groundBrick = this.add
+      .tileSprite(0, PHYSICS.groundY - 5, GAME_WIDTH * 2, 6, 'spr_brick_ground')
+      .setOrigin(0, 0)
+      .setDepth(5)
+      .setScrollFactor(0);
   }
 
   private createPlayer() {
@@ -292,8 +298,13 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.pointerStartY.set(p.id, p.y);
       this.pointerDownAt.set(p.id, Date.now());
-      if (p.x > GAME_WIDTH / 2) this.activePointersRight.add(p.id);
-      else this.activePointersLeft.add(p.id);
+      if (p.x > GAME_WIDTH / 2) {
+        this.activePointersRight.add(p.id);
+        this.jumpBuffered = true;
+        this.jumpBufferUntil = this.time.now + PHYSICS.jumpBufferMs;
+      } else {
+        this.activePointersLeft.add(p.id);
+      }
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       const startY = this.pointerStartY.get(p.id);
@@ -310,6 +321,8 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver || this.levelComplete) return;
 
     const dt = deltaMs / 1000;
+    this.handleInput(deltaMs);
+
     this.distance += this.scrollSpeed * this.speedMult * dt;
     this.scrollSpeed = Math.min(800, PHYSICS.baseScrollSpeed + this.distance * 0.05);
     this.level = Math.floor(this.distance / 3000) + 1;
@@ -319,7 +332,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.handleInput();
     this.updatePlayer(dt);
     this.updateParallax(dt);
     this.updatePigeons(dt);
@@ -340,8 +352,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private handleInput() {
-    const pointerJump = this.activePointersRight.size > 0;
+  private handleInput(deltaMs: number) {
     const pointerBrake = this.activePointersLeft.size > 0;
     const pointerDuck = this.swipeDuckPointers.size > 0;
     const pointerHoldSpeedUp = [...this.activePointersRight].some((id) => {
@@ -349,32 +360,64 @@ export class GameScene extends Phaser.Scene {
       return downAt !== undefined && Date.now() - downAt >= this.holdSpeedUpMs;
     });
 
-    const jump = this.spaceKey?.isDown || this.cursors?.up?.isDown || pointerJump;
+    const jumpJustPressed =
+      Phaser.Input.Keyboard.JustDown(this.spaceKey) ||
+      Phaser.Input.Keyboard.JustDown(this.cursors?.up) ||
+      this.jumpBuffered;
     const duck = this.cursors?.down?.isDown || pointerDuck;
     const speedUp = this.cursors?.right?.isDown || pointerHoldSpeedUp;
     const brake = this.cursors?.left?.isDown || pointerBrake;
 
     this.speedMult = speedUp ? PHYSICS.speedUpMultiplier : brake ? PHYSICS.brakeMultiplier : 1;
 
-    if (duck && !this.isJumping) {
-      this.isDucking = true;
-      this.player.setScale(SCALE.playerDuck, SCALE.playerDuck * 0.75);
-    } else {
-      this.isDucking = false;
-      this.player.setScale(SCALE.player);
+    if (this.jumpBuffered && this.time.now > this.jumpBufferUntil) {
+      this.jumpBuffered = false;
     }
 
-    if (jump && !this.isJumping && !this.isDucking) {
-      this.isJumping = true;
-      this.jumpVy = PHYSICS.jumpVelocity;
-      this.setCyclistFrame(0);
-      this.playJumpSquash();
+    const onGround = !this.isJumping;
+    if (onGround) {
+      this.coyoteMsLeft = PHYSICS.coyoteTimeMs;
+    } else {
+      this.coyoteMsLeft = Math.max(0, this.coyoteMsLeft - deltaMs);
+    }
+
+    if (jumpJustPressed && (onGround || this.coyoteMsLeft > 0)) {
+      this.performJump();
+    } else if (jumpJustPressed && !this.isJumping) {
+      this.jumpBuffered = true;
+      this.jumpBufferUntil = this.time.now + PHYSICS.jumpBufferMs;
+    }
+
+    if (this.isJumping) {
+      this.isDucking = false;
+    } else if (duck) {
+      this.isDucking = true;
+      if (!this.tweens.isTweening(this.player)) {
+        this.player.setScale(SCALE.playerDuck, SCALE.playerDuck * 0.75);
+      }
+    } else {
+      this.isDucking = false;
+      if (!this.tweens.isTweening(this.player)) {
+        this.player.setScale(SCALE.player);
+      }
     }
   }
 
+  private performJump() {
+    if (this.isJumping) return;
+    this.isJumping = true;
+    this.isDucking = false;
+    this.jumpVy = PHYSICS.jumpVelocity;
+    this.jumpBuffered = false;
+    this.coyoteMsLeft = 0;
+    this.setCyclistFrame(0);
+    this.playJumpSquash();
+  }
+
   private playJumpSquash() {
-    const baseX = this.isDucking ? SCALE.playerDuck : SCALE.player;
-    const baseY = this.isDucking ? SCALE.playerDuck * 0.75 : SCALE.player;
+    this.tweens.killTweensOf(this.player);
+    const baseX = SCALE.player;
+    const baseY = SCALE.player;
     this.tweens.add({
       targets: this.player,
       scaleX: baseX * 0.82,
@@ -386,6 +429,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private playLandSquash() {
+    this.tweens.killTweensOf(this.player);
     const baseX = this.isDucking ? SCALE.playerDuck : SCALE.player;
     const baseY = this.isDucking ? SCALE.playerDuck * 0.75 : SCALE.player;
     this.tweens.add({
@@ -398,7 +442,7 @@ export class GameScene extends Phaser.Scene {
       ease: 'Bounce.easeOut',
     });
     audioManager.playLand();
-    this.cameras.main.shake(60, 0.004);
+    this.cameras.main.shake(80, 0.012);
   }
 
   private spawnPedalDust() {
@@ -437,7 +481,11 @@ export class GameScene extends Phaser.Scene {
         this.playerY = PHYSICS.groundY;
         this.isJumping = false;
         this.jumpVy = 0;
+        this.player.x = PHYSICS.playerX;
         this.playLandSquash();
+        if (this.jumpBuffered && this.time.now <= this.jumpBufferUntil) {
+          this.performJump();
+        }
       }
     }
 
@@ -484,6 +532,9 @@ export class GameScene extends Phaser.Scene {
       const ts = this.parallaxLayers[i];
       if (ts) ts.tilePositionX += this.scrollSpeed * layer.speed * this.speedMult * dt;
     });
+    if (this.groundBrick) {
+      this.groundBrick.tilePositionX += this.scrollSpeed * 0.68 * this.speedMult * dt;
+    }
   }
 
   private updateSpawner(dt: number) {
@@ -844,20 +895,6 @@ export class GameScene extends Phaser.Scene {
       score: this.score,
       pastries: this.pastries,
       level: this.level,
-    });
-
-    const overlay = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'spr_level_complete')
-      .setDepth(300)
-      .setScrollFactor(0)
-      .setScale(0.5)
-      .setAlpha(0);
-    this.tweens.add({
-      targets: overlay,
-      alpha: 1,
-      scale: SCALE.levelBanner,
-      duration: 600,
-      ease: 'Back.easeOut',
     });
     this.scene.pause();
   }

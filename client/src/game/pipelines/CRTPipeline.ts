@@ -15,19 +15,18 @@ void main() {
     return;
   }
   vec2 centered = uv * 2.0 - 1.0;
-  vec2 offset = centered.yx / vec2(6.0, 5.0);
+  vec2 offset = centered.yx / vec2(8.0, 8.0);
   vec2 distorted = centered + centered * offset * offset;
-  uv = (distorted + 1.0) * 0.5;
+  uv = clamp((distorted + 1.0) * 0.5, 0.001, 0.999);
   vec4 col;
-  col.r = texture2D(uMainSampler, uv + vec2(-0.002, 0.0)).r;
+  col.r = texture2D(uMainSampler, uv + vec2(-0.001, 0.0)).r;
   col.g = texture2D(uMainSampler, uv).g;
-  col.b = texture2D(uMainSampler, uv + vec2(0.002, 0.0)).b;
+  col.b = texture2D(uMainSampler, uv + vec2(0.001, 0.0)).b;
   col.a = 1.0;
-  float scanline = sin(uv.y * uResolution.y * 3.14159) * 0.08;
+  // Subtle scanline phase via uTime; low amplitude avoids visible flicker (App flicker warning is cosmetic).
+  float scanline = sin(uv.y * uResolution.y * 3.14159 + uTime * 2.0) * 0.04;
   col.rgb -= scanline;
-  float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
-  if (lum > 0.8) col.rgb += 0.05;
-  float vignette = 1.0 - dot(centered, centered) * 0.35;
+  float vignette = 1.0 - dot(centered, centered) * 0.20;
   col.rgb *= vignette;
   gl_FragColor = col;
 }
@@ -47,29 +46,41 @@ export class CRTPipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline 
   }
 }
 
-export function registerCRTPipeline(game: Phaser.Game) {
-  if (game.renderer.type === Phaser.WEBGL) {
-    const renderer = game.renderer as Phaser.Renderer.WebGL.WebGLRenderer;
-    if (!renderer.pipelines.has('CRT')) {
-      renderer.pipelines.addPostPipeline('CRT', CRTPipeline);
-    }
-    const scene = game.scene.getScenes(true)[0];
-    scene?.cameras.main.setPostPipeline('CRT');
-  }
+export function isCRTPipelineEnabled(): boolean {
+  return crtEnabled;
 }
 
-export function setCRTPipelineEnabled(_game: Phaser.Game, enabled: boolean) {
+export function registerCRTPipeline(camera: Phaser.Cameras.Scene2D.Camera, game: Phaser.Game) {
+  if (game.renderer.type !== Phaser.WEBGL) return;
+  const renderer = game.renderer as Phaser.Renderer.WebGL.WebGLRenderer;
+  if (!renderer.pipelines.has('CRT')) {
+    renderer.pipelines.addPostPipeline('CRT', CRTPipeline);
+  }
+  camera.setPostPipeline('CRT');
+}
+
+function getGameCamera(game: Phaser.Game): Phaser.Cameras.Scene2D.Camera | null {
+  const scene = game.scene.getScene('Game');
+  if (!scene?.scene.isActive() && !scene?.scene.isPaused()) return null;
+  return scene.cameras.main;
+}
+
+export function setCRTPipelineEnabled(game: Phaser.Game, enabled: boolean) {
   crtEnabled = enabled;
+  game.registry.set('crtEnabled', enabled);
+  if (game.renderer.type !== Phaser.WEBGL) return;
+
+  const camera = getGameCamera(game);
+  if (!camera) return;
+
+  if (enabled) {
+    registerCRTPipeline(camera, game);
+  } else {
+    camera.resetPostPipeline();
+  }
 }
 
 export function toggleCRTPipeline(game: Phaser.Game): boolean {
-  crtEnabled = !crtEnabled;
-  const scene = game.scene.getScenes(true)[0];
-  if (!scene) return crtEnabled;
-  if (!crtEnabled && game.renderer.type === Phaser.WEBGL) {
-    scene.cameras.main.resetPostPipeline();
-  } else if (crtEnabled) {
-    registerCRTPipeline(game);
-  }
+  setCRTPipelineEnabled(game, !crtEnabled);
   return crtEnabled;
 }

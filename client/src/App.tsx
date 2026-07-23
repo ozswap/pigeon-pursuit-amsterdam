@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Phaser from 'phaser';
 import { GameCanvas, restartGame, saveBestScore } from './game/GameCanvas';
-import { toggleCRTPipeline } from './game/pipelines/CRTPipeline';
 import { audioManager } from './game/audio';
 import { STORAGE_KEYS, GOLDEN_BIKE_THRESHOLD } from './game/config';
 import './App.css';
@@ -128,7 +127,6 @@ export default function App() {
     const next = !crtEnabled;
     setCrtEnabled(next);
     localStorage.setItem(STORAGE_KEYS.crtEnabled, String(next));
-    if (gameRef.current) toggleCRTPipeline(gameRef.current);
   };
 
   const toggleSound = () => {
@@ -286,7 +284,9 @@ export default function App() {
           <span className="controls-hint-desktop">
             Space/↑ Jump · ↓ Duck · → Speed · ← Brake
           </span>
-          <span className="controls-hint-mobile">Tap right: Jump · Tap left: Brake</span>
+          <span className="controls-hint-mobile">
+            Tap right: Jump · Hold right: Speed · Swipe down on right: Duck · Tap left: Brake
+          </span>
         </footer>
       )}
     </div>
