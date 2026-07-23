@@ -5,7 +5,7 @@ A retro pixel-art endless runner — dodge aggressive Amsterdam pigeons while de
 ## Stack
 
 - **Frontend**: React + Vite + Phaser 3 (320×180, CRT shader)
-- **Hosting**: GitHub Pages (free tier)
+- **Hosting**: [Render Static Site](https://render.com/docs/static-sites) (recommended) or GitHub Pages
 
 The game runs fully in the browser with local storage for best score, cumulative progress, and unlocks. No backend required.
 
@@ -33,9 +33,38 @@ npm run dev          # client at http://localhost:5173
 | Speed up | → (hold) | Hold right |
 | Brake | ← (hold) | Hold left |
 
-## Deploy to GitHub Pages
+## Deploy to Render (recommended)
 
-The game is a static Vite build in `client/dist`. This repo includes `.github/workflows/github-pages.yml`, which builds on every push to `main` and deploys with the official GitHub Actions (`upload-pages-artifact` + `deploy-pages`). No API tokens or repository secrets are required — deployment uses the built-in `GITHUB_TOKEN`.
+Static sites are **free** on Render. You need a **Hobby workspace** (also free — sign up at [render.com](https://render.com) and create one if prompted).
+
+### Option A — Dashboard (manual, dead simple)
+
+1. Log in to Render with a **Hobby workspace** selected (top-left workspace switcher).
+2. Click **New +** → **Static Site**.
+3. Connect GitHub account **ozswap** and select repo **pigeon-pursuit-amsterdam**.
+4. Use these exact settings:
+
+| Field | Value |
+|-------|-------|
+| **Name** | `canal-courier-web` |
+| **Branch** | `main` |
+| **Root Directory** | *(leave blank)* |
+| **Build Command** | `npm install && npm run build` |
+| **Publish Directory** | `client/dist` |
+| **Environment Variables** | *(none — leave empty)* |
+
+5. Click **Create Static Site**. First deploy takes ~2–3 minutes.
+6. Live URL will be `https://canal-courier-web.onrender.com` (or similar).
+
+No API keys, no backend, no env vars. Push to `main` triggers auto-redeploy if the site is connected to the repo.
+
+### Option B — Blueprint (optional)
+
+This repo includes `render.yaml` at the root with the same settings. In Render: **New +** → **Blueprint** → connect the repo → apply. Requires Hobby workspace with billing info on file (Render may ask once even for free tier).
+
+## Deploy to GitHub Pages (optional)
+
+The game is a static Vite build in `client/dist`. This repo includes `.github/workflows/github-pages.yml`, which builds on every push to `main`.
 
 ### One-time setup
 

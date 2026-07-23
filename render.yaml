@@ -2,5 +2,5 @@ services:
   - type: web
     name: canal-courier-web
     runtime: static
-    buildCommand: npm install && npm run build --workspace=client
+    buildCommand: npm install && npm run build
     staticPublishPath: client/dist
