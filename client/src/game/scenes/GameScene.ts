@@ -62,14 +62,14 @@ const TELEGRAPH_LANDING_OFFSET = 24;
 const SCALE = {
   player: 0.34,
   playerDuck: 0.34,
-  cargo: 0.1,
+  cargo: 0.55,
   pigeon: 0.21,
   pigeonDive: 0.22,
   pigeonFlock: 0.17,
   arrow: 0.28,
   smoke: 0.42,
   scorePopup: 0.22,
-  pastryDrop: 0.05,
+  pastryDrop: 0.65,
 };
 
 export class GameScene extends Phaser.Scene {
@@ -260,7 +260,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 1);
 
     this.cargo = this.add
-      .image(PHYSICS.playerX - 6, this.playerY - 36, 'spr_pastry_stack')
+      .image(PHYSICS.playerX - 8, this.playerY - 38, 'spr_pastry_stack')
       .setDepth(51)
       .setScale(SCALE.cargo)
       .setOrigin(0.5, 1);
@@ -536,8 +536,8 @@ export class GameScene extends Phaser.Scene {
 
     this.player.y = this.playerY;
     this.cargo.setPosition(
-      this.player.x - 6,
-      this.playerY - (this.isDucking ? 24 : 36),
+      this.player.x - 8,
+      this.playerY - (this.isDucking ? 26 : 38),
     );
     this.cargo.setScale(SCALE.cargo * (this.pastries / PHYSICS.startingPastries + 0.4));
 
@@ -558,7 +558,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.pedalTimer += dt;
-    const interval = 0.15 / this.speedMult;
+    const interval = 0.12 / this.speedMult;
     if (this.pedalTimer >= interval) {
       this.pedalTimer = 0;
       this.pedalFrame = (this.pedalFrame + 1) % PLAYER_PEDAL_FRAMES.length;
@@ -926,23 +926,23 @@ export class GameScene extends Phaser.Scene {
 
   private updateCargoVisual() {
     const lost = PHYSICS.startingPastries - this.pastries;
-    const wobble = 4 + lost * 3;
+    const wobble = 3 + lost * 2.5;
     this.tweens.add({
       targets: this.cargo,
       angle: { from: -wobble, to: wobble },
-      y: this.cargo.y + 3,
-      duration: 80,
+      duration: 90,
       yoyo: true,
-      repeat: 3,
+      repeat: 4,
       ease: 'Sine.easeInOut',
     });
     this.tweens.add({
       targets: this.cargo,
-      scaleX: this.cargo.scaleX * 1.15,
-      scaleY: this.cargo.scaleY * 0.85,
-      duration: 60,
+      scaleX: this.cargo.scaleX * 1.08,
+      scaleY: this.cargo.scaleY * 0.92,
+      duration: 70,
       yoyo: true,
       repeat: 2,
+      ease: 'Sine.easeInOut',
     });
   }
 
